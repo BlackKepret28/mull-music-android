@@ -5,6 +5,7 @@ import 'screens/downloads_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/library_screen.dart';
 import 'screens/search_screen.dart';
+import 'services/ytdlp_service.dart';
 import 'widgets/mini_player.dart';
 
 /// Kerangka utama: empat tab di bawah, bar pemutar mini nempel di atasnya.
@@ -26,9 +27,22 @@ class _AppShellState extends State<AppShell> {
   Track? _current;
   bool _playing = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Init Python + ffmpeg makan ~5 detik pertama kali. Mulai sekarang supaya
+    // sudah siap waktu pengguna selesai ngetik pencarian pertamanya.
+    // Galatnya ditangani YtDlpService dan muncul di layar Cari.
+    YtDlpService.instance.ensureReady().ignore();
+  }
+
   void _goSearch() => setState(() => _tab = 1);
 
-  void _openTrack(Track t) => setState(() => _current = t);
+  void _openTrack(Track t) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Pemutar nyusul: "${t.title}"')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

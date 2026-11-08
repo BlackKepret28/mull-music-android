@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../dev/spike_page.dart';
+import '../services/ytdlp_service.dart';
 import '../settings.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -33,7 +34,8 @@ class SettingsScreen extends StatelessWidget {
             subtitle: const Text('Matikan kalau app terasa berat.'),
           ),
           const Divider(height: 24),
-          const _SectionTitle('Lanjutan'),
+          const _SectionTitle('Mesin unduh'),
+          const _BarisYtDlp(),
           ListTile(
             leading: const Icon(Icons.bug_report_outlined),
             title: const Text('Diagnosa yt-dlp'),
@@ -56,6 +58,64 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+}
+
+/// Versi yt-dlp + tombol perbarui.
+///
+/// Belum ada perbarui otomatis berkala: app cuma memperbarui sekali waktu
+/// pertama dipasang. Nyusul setelah penyimpanan pengaturan jadi.
+class _BarisYtDlp extends StatefulWidget {
+  const _BarisYtDlp();
+
+  @override
+  State<_BarisYtDlp> createState() => _BarisYtDlpState();
+}
+
+class _BarisYtDlpState extends State<_BarisYtDlp> {
+  final _service = YtDlpService.instance;
+  bool _jalan = false;
+
+  Future<void> _perbarui() async {
+    setState(() => _jalan = true);
+    String pesan;
+    try {
+      final v = await _service.perbaruiYtDlp();
+      pesan = v == null ? 'yt-dlp diperbarui.' : 'yt-dlp sekarang $v.';
+    } catch (e) {
+      pesan = e.toString().replaceFirst('Exception: ', '');
+    }
+    if (!mounted) return;
+    setState(() => _jalan = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pesan)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: _service,
+      builder: (context, _) {
+        final v = _service.version;
+        final nyiapin = _service.status == EngineStatus.nyiapin;
+
+        return ListTile(
+          leading: const Icon(Icons.sync),
+          title: const Text('yt-dlp'),
+          subtitle: Text(switch (_service.status) {
+            EngineStatus.gagal => _service.error ?? 'Gagal disiapkan.',
+            EngineStatus.nyiapin => _service.langkah,
+            _ => v ?? 'Versi bawaan paket',
+          }),
+          trailing: _jalan || nyiapin
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : TextButton(onPressed: _perbarui, child: const Text('Perbarui')),
+        );
+      },
     );
   }
 }
