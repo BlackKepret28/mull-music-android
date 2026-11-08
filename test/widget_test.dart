@@ -1,23 +1,46 @@
-import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:mullmusic/main.dart';
+import 'package:mullmusic/app.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets('Kerangka: empat tab tampil, Beranda yang kebuka duluan', (tester) async {
+    await tester.pumpWidget(const MullApp());
+    await tester.pumpAndSettle();
 
-  setUp(() {
-    // Channel native nggak ada di test, jadi dipalsukan.
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('mull/ytdlp'),
-      (call) async => call.method == 'launchArgs' ? {'autorun': false} : null,
-    );
+    expect(find.text('Beranda'), findsOneWidget);
+    expect(find.text('Cari'), findsOneWidget);
+    expect(find.text('Pustaka'), findsOneWidget);
+    expect(find.text('Unduhan'), findsOneWidget);
+
+    // Beranda masih kosong, jadi yang muncul keadaan kosongnya.
+    expect(find.text('Belum ada apa-apa di sini'), findsOneWidget);
   });
 
-  testWidgets('Layar spike tampil dengan tombol tes', (tester) async {
-    await tester.pumpWidget(const SpikeApp());
-    await tester.pump();
-    expect(find.text('Mull Music: uji yt-dlp'), findsOneWidget);
-    expect(find.text('Jalankan semua tes'), findsOneWidget);
+  testWidgets('Tombol "Mulai cari" di Beranda pindah ke tab Cari', (tester) async {
+    await tester.pumpWidget(const MullApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Mulai cari'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mau dengar apa?'), findsOneWidget);
+  });
+
+  testWidgets('Navigasi bawah pindah ke Pustaka', (tester) async {
+    await tester.pumpWidget(const MullApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Pustaka'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lagu'), findsOneWidget);
+    expect(find.text('Playlist'), findsOneWidget);
+  });
+
+  testWidgets('Bar pemutar mini belum muncul karena belum ada yang diputar', (tester) async {
+    await tester.pumpWidget(const MullApp());
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Putar'), findsNothing);
   });
 }
