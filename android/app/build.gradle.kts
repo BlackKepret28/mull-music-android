@@ -31,7 +31,8 @@ android {
         // Cuma arm64 dulu biar APK kecil (Infinix Note 30 = arm64-v8a).
         // Waktu `flutter build apk --split-per-abi`, Flutter pakai splits sendiri,
         // jadi abiFilters dimatikan supaya nggak bentrok.
-        if (!project.hasProperty("split-per-abi")) {
+        // Flutter selalu mengirim properti ini (nilai "false" kalau tanpa --split-per-abi), jadi cek nilainya.
+        if (project.findProperty("split-per-abi")?.toString() != "true") {
             ndk { abiFilters += listOf("arm64-v8a") }
         }
     }
@@ -39,7 +40,14 @@ android {
     // youtubedl-android menjalankan python/ffmpeg/qjs dari nativeLibraryDir,
     // jadi file .so harus diekstrak ke disk (bukan dibaca langsung dari APK).
     packaging {
-        jniLibs { useLegacyPackaging = true }
+        jniLibs {
+            useLegacyPackaging = true
+            // abiFilters di atas nggak cukup: AAR youtubedl-android tetap menyelipkan semua ABI
+            // (dicek 8 Nov, APK 215 MB isi armeabi-v7a/x86_64). Buang di tahap packaging.
+            if (project.findProperty("split-per-abi")?.toString() != "true") {
+                excludes += listOf("lib/armeabi-v7a/**", "lib/x86/**", "lib/x86_64/**")
+            }
+        }
     }
 
     buildTypes {
