@@ -48,4 +48,22 @@ Versi Android dari Mull Music App (versi Windows: repo privat `BlackKepret28/mul
 - Penutup tiap batch: ringkasan perubahan, cara jalanin, yang belum dites di HP asli.
 
 ## Status
-- 8 Nov 2026: project dibuat, kode spike selesai. `flutter analyze` bersih, `flutter test` lulus. Build APK debug: lihat catatan di bawah. Spike BELUM dijalankan di HP (HP belum mengizinkan USB debugging).
+- 8 Nov 2026: project dibuat, kode spike selesai. `flutter analyze` bersih, `flutter test` lulus.
+- **9 Nov 2026: SPIKE LULUS di Infinix X6833B (Android 14), build release.** Laporan: `adb pull /sdcard/Android/data/com.mulya.mullmusic/files/spike-report.txt`.
+  - Init pertama 5,0 dtk (ekstrak Python + ffmpeg), init berikutnya 0,14 dtk.
+  - Update yt-dlp stable: bawaan AAR -> 2026.10.26 dalam 2,2 dtk.
+  - Runtime JS: `JS runtimes: quickjs-2025-04-26`, `yt_dlp_ejs-0.8.0` ikut di yt-dlp hasil update, challenge YouTube terpecahkan (`jsc:quickjs`), tanpa peringatan "No supported JavaScript runtime". QuickJS LAMBAT: `-v --simulate` 33,5 dtk, getInfo 26,9 dtk.
+  - getInfo Big Buck Bunny: 61 format, ada 720p.
+  - Lagu YT Music (Kevin MacLeod "Carefree"): m4a 3,2 MB, 32 dtk.
+  - Video 720p: mp4 97,5 MB, 111 dtk; ffprobe di PC: AV1 1280x720 60 fps + AAC, durasi 10:34 (merge ffmpeg jalan).
+  - Wikimedia Commons: webm 29 MB, 28 dtk.
+  - Ukuran APK release arm64: 58,8 MB. APK debug tercatat 215 MB tapi isinya cuma 94 MB (sisanya ruang kosong incremental packaging AGP), jangan dipakai buat ngukur.
+- Pelajaran build:
+  - `abiFilters` nggak ngefek (plugin Flutter + AAR tetap menyelipkan semua ABI). Yang jalan: `packaging.jniLibs.excludes` buat armeabi-v7a/x86/x86_64 (kecuali `-Psplit-per-abi=true`).
+  - Build release WAJIB `proguard-rules.pro` (keep `com.yausername.**`, `com.fasterxml.jackson.**`, commons-compress). Tanpa itu R8 merusak Jackson: init gagal "class w2 is not a concrete class".
+  - `YoutubeDL.version()` null sebelum pernah di-update; Dart harus terima `String?`.
+- Catatan buat Langkah 2:
+  - Memori HP Mulya tinggal ~1 GB dari 228 GB. APK debug (215 MB) ditolak `INSUFFICIENT_STORAGE`, jadi uji pakai APK release. App harus kasih pesan jelas kalau ruang penyimpanan habis.
+  - Karena QuickJS lambat (~25-35 dtk per video YouTube), Cari/putar langsung butuh cache hasil (URL stream + info), prefetch lagu berikutnya, dan indikator loading yang jujur. Pertimbangkan `--extractor-args youtube:player_client=...` yang nggak butuh JS buat audio.
+  - Pilihan format video bawaan: utamakan H.264 (`vcodec^=avc1`) daripada AV1 supaya aman di HP lama; AV1 kepilih otomatis di spike.
+  - Folder spike di HP dihapus setelah tes (130 MB); laporannya disimpan.

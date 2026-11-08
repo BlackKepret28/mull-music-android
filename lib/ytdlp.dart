@@ -46,7 +46,8 @@ class YtDlp {
   /// Siapkan Python + yt-dlp + ffmpeg. Kembalikan lama init (ms).
   static Future<int> init() async => ((await _call('init'))['ms'] as num).toInt();
 
-  static Future<String> version() async => (await _call('version'))['version'] as String;
+  /// Versi yt-dlp yang tercatat. Null kalau masih pakai bawaan AAR (belum pernah di-update).
+  static Future<String?> version() async => (await _call('version'))['version'] as String?;
 
   /// Perbarui yt-dlp. [channel]: stable, nightly, master.
   static Future<Map<String, dynamic>> update({String channel = 'stable'}) =>

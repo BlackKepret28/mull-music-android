@@ -107,7 +107,7 @@ class _SpikePageState extends State<SpikePage> {
     await _step('init', () async {
       final ms = await YtDlp.init();
       _add('  init pertama: $ms ms');
-      _add('  yt-dlp bawaan: ${await YtDlp.version()}');
+      _add('  yt-dlp: ${await YtDlp.version() ?? 'bawaan, belum tercatat'}');
     });
 
     await _step('update yt-dlp (stable)', () async {
