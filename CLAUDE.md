@@ -15,6 +15,8 @@ Versi Android dari Mull Music App (versi Windows: repo privat `BlackKepret28/mul
 - Distribusi: APK lewat GitHub Releases (Play Store menolak app pengunduh YouTube).
 - Perangkat uji: Infinix Note 30 (X6833B, Android 14, arm64-v8a). Build arm64-v8a saja dulu.
 - Package id: `com.mulya.mullmusic` (boleh diganti Mulya sebelum rilis pertama).
+- Kelola keadaan: TANPA provider/riverpod/bloc. Cukup `ChangeNotifier` + `InheritedNotifier` (`SettingsScope`) dan singleton service. Alasan: dependensi sedikit, nggak ada codegen, gampang dibaca sendiri nanti.
+- Pencarian pakai `ytsearch<N>:` + `--flat-playlist` (metadata saja, TANPA JavaScript) supaya cepat. Yang kena QuickJS cuma waktu butuh URL stream atau info satu tautan.
 - GUI: pola tata letak mirip Spotify / YouTube Music (navigasi bawah, bar pemutar mini di atas navigasi, layar Sedang diputar penuh, rak kartu horizontal di Beranda). Pola saja, jangan tiru logo, nama, atau warna merek mereka. Aksen ikut versi Windows (violet).
 
 ## Lingkungan (8 Nov 2026)
@@ -30,13 +32,33 @@ Versi Android dari Mull Music App (versi Windows: repo privat `BlackKepret28/mul
 
 ## Struktur
 - `android/app/src/main/kotlin/com/mulya/mullmusic/MainActivity.kt`: MethodChannel `mull/ytdlp` (init, version, updateYtDlp, getInfo, download, cancel, exec, launchArgs, writeReport) + EventChannel `mull/ytdlp/progress` ({id, progress, eta, line}). Semua kerja di thread pool, hasil dikirim balik di main thread.
-- `lib/ytdlp.dart`: pembungkus channel. `lib/main.dart`: layar SPIKE (tombol "Jalankan semua tes").
+- `lib/ytdlp.dart`: pembungkus channel mentah (1 banding 1 dengan MethodChannel).
+- `lib/services/ytdlp_service.dart`: lapisan di atasnya. `ensureReady()` init sekali per hidup app + update yt-dlp cuma kalau `version()` masih null; `search()` + cache; `perbaruiYtDlp()`; `_pesanRamah()` nerjemahin galat yt-dlp ke bahasa pengguna. Buat tes pakai `YtDlpService.baru()`, jangan `instance`.
+- `lib/main.dart` tipis -> `lib/app.dart` (MaterialApp + tema) -> `lib/shell.dart` (IndexedStack 4 tab + bar pemutar mini).
+- `lib/theme.dart`: tema terang/gelap, aksen violet #6344FB (terang) / #8B7CFF (gelap), sama dengan `--accent` di `ui/shell.css` versi Windows.
+- `lib/settings.dart`: `AppSettings` (ChangeNotifier) + `SettingsScope` (InheritedNotifier). BELUM disimpan ke disk.
+- `lib/models/track.dart`: `Track` (`fromYtDlp`, `fromJson`/`toJson` mirip `playlists.json` Windows) + `formatDuration`.
+- `lib/screens/`: `home_screen` (rak kartu), `search_screen`, `library_screen` (tab Lagu/Video/Playlist), `downloads_screen`, `settings_screen`.
+- `lib/widgets/`: `artwork`, `empty_state`, `mini_player`, `shelf`, `track_tile`.
+- `lib/dev/spike_page.dart`: layar diagnosa (dulu `main.dart` waktu spike), dibuka dari Pengaturan > Diagnosa yt-dlp.
 - Hasil unduhan spike: `getExternalFilesDir("spike")/<id>/`. Laporan: `files/spike-report.txt` (ambil pakai `adb pull /sdcard/Android/data/com.mulya.mullmusic/files/spike-report.txt`). Bisa jalan otomatis: `adb shell am start -n com.mulya.mullmusic/.MainActivity --es autorun true`.
 - Konten uji (semua Creative Commons): lagu Kevin MacLeod "Carefree" (`music.youtube.com/watch?v=owrhKIN3Y90`), Big Buck Bunny dari Blender (`youtube.com/watch?v=aqz-KE-bpKQ`), Big Buck Bunny di Wikimedia Commons (format terkecil).
 
 ## Rencana
-1. SPIKE (lagi dikerjakan): buktiin di HP: init + update yt-dlp, runtime JS jalan (cek `yt-dlp -v`), lagu YT Music jadi m4a/opus, video 720p jadi mp4 (merge ffmpeg), 1 situs non-YouTube. Catat hasil, ukuran APK, waktu init pertama. Kalau runtime JS gagal: STOP, laporkan pilihan ke Mulya, jangan lanjut UI.
-2. Kerangka app (setelah spike lulus): navigasi bawah Beranda/Cari/Pustaka/Unduhan; bar pemutar mini + layar Sedang diputar; just_audio + audio_service (latar belakang, notifikasi, layar kunci); video pakai video_player atau media_kit; Cari lewat ytsearch / YT Music via yt-dlp; antrean unduhan + simpan ke Music/Mull dan Movies/Mull lewat MediaStore (tanpa izin penyimpanan lama); Pustaka + playlist lokal (format JSON mirip `playlists.json` Windows); lirik LRCLIB (`.lrc` di sebelah file); kaca pakai liquid_glass_widgets di bar pemutar dan navigasi (dengan sakelar mati); tema gelap dan terang.
+1. SPIKE (LULUS 9 Nov, jangan diulang): buktiin di HP: init + update yt-dlp, runtime JS jalan (cek `yt-dlp -v`), lagu YT Music jadi m4a/opus, video 720p jadi mp4 (merge ffmpeg), 1 situs non-YouTube. Catat hasil, ukuran APK, waktu init pertama. Kalau runtime JS gagal: STOP, laporkan pilihan ke Mulya, jangan lanjut UI.
+2. Kerangka app (LAGI DIKERJAKAN, branch `batch-2-kerangka`):
+   - [x] tema gelap dan terang, aksen violet
+   - [x] navigasi bawah Beranda/Cari/Pustaka/Unduhan
+   - [x] bar pemutar mini (widget-nya; belum nyambung ke audio)
+   - [x] Cari lewat `ytsearch` + tempel tautan
+   - [ ] just_audio + audio_service (latar belakang, notifikasi, layar kunci)
+   - [ ] layar Sedang diputar penuh
+   - [ ] antrean unduhan + simpan ke Music/Mull dan Movies/Mull lewat MediaStore (tanpa izin penyimpanan lama)
+   - [ ] Pustaka + playlist lokal (format JSON mirip `playlists.json` Windows)
+   - [ ] simpan pengaturan ke disk (shared_preferences) + perbarui yt-dlp berkala
+   - [ ] lirik LRCLIB (`.lrc` di sebelah file)
+   - [ ] video pakai video_player atau media_kit
+   - [ ] kaca pakai liquid_glass_widgets di bar pemutar dan navigasi (dengan sakelar mati)
    Sengaja BELUM: Kenali lagu, impor Spotify, akun Firebase, sinkron dengan Windows.
 3. Rilis: GitHub Actions (tag `v*` -> `flutter build apk --release --split-per-abi` -> APK + `.sha256` ke Releases); keystore dibuat Mulya, disimpan sebagai secret base64 (jangan pernah commit atau minta ditempel ke chat); cek update di app (GitHub Releases -> unduh APK -> buka penginstal); README (cara pasang, GPL-3.0, daftar komponen pihak ketiga: yt-dlp Unlicense, youtubedl-android GPL-3.0, ffmpeg sesuai build-nya, QuickJS MIT).
 
@@ -58,6 +80,12 @@ Versi Android dari Mull Music App (versi Windows: repo privat `BlackKepret28/mul
   - Video 720p: mp4 97,5 MB, 111 dtk; ffprobe di PC: AV1 1280x720 60 fps + AAC, durasi 10:34 (merge ffmpeg jalan).
   - Wikimedia Commons: webm 29 MB, 28 dtk.
   - Ukuran APK release arm64: 58,8 MB. APK debug tercatat 215 MB tapi isinya cuma 94 MB (sisanya ruang kosong incremental packaging AGP), jangan dipakai buat ngukur.
+- **9 Nov 2026: Langkah 2 bagian 1-2 jalan di Infinix (branch `batch-2-kerangka`).**
+  - Kerangka + Cari sungguhan DITES DI HP ASLI pakai APK release. Pencarian `kevin macleod carefree` keluar ~10 entri lengkap dengan sampul, kanal, dan durasi. Gelap dan terang dua-duanya rapi; hasil cari nggak hilang waktu tema diganti (kena cache).
+  - APK release arm64 sekarang 59,5 MB (spike 58,8 MB), build 50,8 dtk.
+  - Dugaan soal `--flat-playlist` TERBUKTI: pencarian nggak kena QuickJS, jadi hitungan detik, bukan 30 detik.
+  - Ruang HP waktu tes tinggal 861 MB dari 228 GB. Install APK release tetap muat.
+  - BELUM dites di HP: tempel tautan (jalur QuickJS ~30 dtk), tombol Perbarui yt-dlp, layar Diagnosa dari menu Pengaturan yang baru.
 - Pelajaran build:
   - `abiFilters` nggak ngefek (plugin Flutter + AAR tetap menyelipkan semua ABI). Yang jalan: `packaging.jniLibs.excludes` buat armeabi-v7a/x86/x86_64 (kecuali `-Psplit-per-abi=true`).
   - Build release WAJIB `proguard-rules.pro` (keep `com.yausername.**`, `com.fasterxml.jackson.**`, commons-compress). Tanpa itu R8 merusak Jackson: init gagal "class w2 is not a concrete class".
