@@ -9,10 +9,18 @@ import 'playlist_screen.dart';
 
 /// Cari lagu atau video lewat yt-dlp (`ytsearch`), atau tempel tautan langsung.
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key, this.onPlay, this.onDownload});
+  const SearchScreen({
+    super.key,
+    this.onPlay,
+    this.onDownload,
+    this.permintaanLuar,
+  });
 
   final void Function(List<Track> daftar, int indeks)? onPlay;
   final void Function(Track track, {bool video})? onDownload;
+
+  /// Query yang dikirim layar lain (mis. tombol Tempel tautan di Beranda).
+  final ValueNotifier<String?>? permintaanLuar;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -33,9 +41,23 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _lamaBanget = false;
 
   @override
+  void initState() {
+    super.initState();
+    widget.permintaanLuar?.addListener(_dariLuar);
+  }
+
+  @override
   void dispose() {
+    widget.permintaanLuar?.removeListener(_dariLuar);
     _controller.dispose();
     super.dispose();
+  }
+
+  void _dariLuar() {
+    final q = widget.permintaanLuar?.value;
+    if (q == null || q.isEmpty) return;
+    _controller.text = q;
+    _submit(q);
   }
 
   Future<void> _submit(String raw) async {

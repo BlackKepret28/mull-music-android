@@ -13,6 +13,7 @@ Versi Android dari Mull Music App (versi Windows: repo privat `BlackKepret28/mul
 - Stack: Flutter (UI) + youtubedl-android (yt-dlp + Python + QuickJS + ffmpeg) lewat platform channel Kotlin. Artefak tim Seal: `io.github.junkfood02.youtubedl-android:library` dan `:ffmpeg`, versi **0.18.1** (terbaru di Maven Central per 8 Nov 2026, rilis 16 Nov 2025). Cek ulang Maven Central sebelum naik versi, jangan tebak.
 - Lisensi: GPL-3.0 (ikut youtubedl-android), repo publik terpisah `mull-music-android` (belum dibuat). Jangan salin kode project GPL lain tanpa cantumkan sumber.
 - Distribusi: APK lewat GitHub Releases (Play Store menolak app pengunduh YouTube).
+- **Versi Android ini buat PRIBADI Mulya** (diputuskan 9 Nov). Jangan dipajang di situs: nggak ada tombol unduh Android, nggak ada halaman Android, nggak disebut di `mull-git/web/`. Dicek 9 Nov: situsnya memang belum nyebut Android sama sekali, jadi nggak ada yang perlu dicopot, cukup jangan ditambah. Catatan GPL: selama APK-nya nggak dibagikan ke orang lain, nggak ada kewajiban menyediakan sumber; begitu dibagikan, sumbernya harus ikut tersedia.
 - Perangkat uji: Infinix Note 30 (X6833B, Android 14, arm64-v8a). Build arm64-v8a saja dulu.
 - Package id: `com.mulya.mullmusic` (boleh diganti Mulya sebelum rilis pertama).
 - Kelola keadaan: TANPA provider/riverpod/bloc. Cukup `ChangeNotifier` + `InheritedNotifier` (`SettingsScope`) dan singleton service. Alasan: dependensi sedikit, nggak ada codegen, gampang dibaca sendiri nanti.

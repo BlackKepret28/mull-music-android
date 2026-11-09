@@ -12,6 +12,7 @@ class TrackTile extends StatelessWidget {
     this.onDownload,
     this.onDownloadVideo,
     this.onTambahKePlaylist,
+    this.onMenu,
     this.selected = false,
   });
 
@@ -20,6 +21,10 @@ class TrackTile extends StatelessWidget {
   final VoidCallback? onDownload;
   final VoidCallback? onDownloadVideo;
   final VoidCallback? onTambahKePlaylist;
+
+  /// Kalau diisi, tombol titik tiga cuma meneruskan ketukan ke sini dan
+  /// pemanggil yang nentuin isi menunya.
+  final VoidCallback? onMenu;
 
   /// Sedang diputar: judulnya diwarnai aksen.
   final bool selected;
@@ -74,7 +79,13 @@ class TrackTile extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 8),
                 child: Icon(Icons.download_done, size: 18, color: cs.primary),
               ),
-            if (onDownload != null || onTambahKePlaylist != null)
+            if (onMenu != null)
+              IconButton(
+                tooltip: 'Opsi lain',
+                icon: const Icon(Icons.more_vert, size: 20),
+                onPressed: onMenu,
+              )
+            else if (onDownload != null || onTambahKePlaylist != null)
               PopupMenuButton<String>(
                 tooltip: 'Opsi lain',
                 icon: const Icon(Icons.more_vert, size: 20),

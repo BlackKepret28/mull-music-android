@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../models/track.dart';
+import 'recent_service.dart';
 import 'ytdlp_service.dart';
 
 /// Pemutar audio + integrasi notifikasi/layar kunci lewat audio_service.
@@ -105,6 +107,14 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
   /// Putar satu lagu, antrean diisi lagu itu saja.
   Future<void> putarSatu(Track t) => putar([t], 0);
 
+  static final _acak = Random();
+
+  /// Acak urutannya dulu, baru diputar dari awal.
+  Future<void> putarAcak(List<Track> daftar) {
+    final campur = [...daftar]..shuffle(_acak);
+    return putar(campur, 0);
+  }
+
   /// Putar daftar lagu mulai dari indeks [mulai].
   Future<void> putar(List<Track> daftar, int mulai) async {
     if (daftar.isEmpty) return;
@@ -147,6 +157,9 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
       }
 
       await _player.play();
+      // Dicatat setelah benar-benar jalan, supaya lagu yang gagal diputar
+      // nggak ikut masuk "Baru diputar".
+      RecentService.instance.catat(t).ignore();
       _siapkanBerikutnya();
     } catch (e) {
       if (aku != _token) return;

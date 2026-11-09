@@ -8,9 +8,9 @@ import 'screens/library_screen.dart';
 import 'screens/now_playing_screen.dart';
 import 'screens/search_screen.dart';
 import 'services/download_service.dart';
-import 'services/library_service.dart';
 import 'services/player_service.dart';
 import 'services/playlist_service.dart';
+import 'services/recent_service.dart';
 import 'services/ytdlp_service.dart';
 import 'settings.dart';
 import 'ytdlp.dart';
@@ -41,6 +41,9 @@ class _AppShellState extends State<AppShell> {
   /// atau mengunduh sesuatu. Minta di layar pembuka cuma bikin bingung.
   bool _izinDiminta = false;
 
+  /// Jembatan Beranda -> Cari waktu tombol Tempel tautan ditekan.
+  final _permintaanCari = ValueNotifier<String?>(null);
+
   @override
   void initState() {
     super.initState();
@@ -53,7 +56,21 @@ class _AppShellState extends State<AppShell> {
     // `muat()` langsung memberi tahu pendengarnya.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PlaylistService.instance.muat();
+      RecentService.instance.muat();
     });
+  }
+
+  @override
+  void dispose() {
+    _permintaanCari.dispose();
+    super.dispose();
+  }
+
+  void _tempelTautan(String tautan) {
+    setState(() => _tab = 1);
+    // Diset ulang ke null dulu supaya tautan yang sama bisa dikirim dua kali.
+    _permintaanCari.value = null;
+    _permintaanCari.value = tautan;
   }
 
   void _goSearch() => setState(() => _tab = 1);
@@ -70,6 +87,11 @@ class _AppShellState extends State<AppShell> {
   void _putar(List<Track> daftar, int indeks) {
     _mintaIzinNotifikasi();
     _player.putar(daftar, indeks);
+  }
+
+  void _putarAcak(List<Track> daftar) {
+    _mintaIzinNotifikasi();
+    _player.putarAcak(daftar);
   }
 
   void _unduh(Track t, {bool video = false}) {
@@ -111,16 +133,23 @@ class _AppShellState extends State<AppShell> {
             body: IndexedStack(
               index: _tab,
               children: [
-                ListenableBuilder(
-                  listenable: LibraryService.instance,
-                  builder: (context, _) => HomeScreen(
-                    downloaded: LibraryService.instance.lagu,
-                    onPlay: _putar,
-                    onGoSearch: _goSearch,
-                  ),
+                HomeScreen(
+                  onPlay: _putar,
+                  onGoSearch: _goSearch,
+                  onGoLibrary: () => setState(() => _tab = 2),
+                  onGoDownloads: () => setState(() => _tab = 3),
+                  onTempelTautan: _tempelTautan,
                 ),
-                SearchScreen(onPlay: _putar, onDownload: _unduh),
-                LibraryScreen(onGoSearch: _goSearch, onPlay: _putar),
+                SearchScreen(
+                  onPlay: _putar,
+                  onDownload: _unduh,
+                  permintaanLuar: _permintaanCari,
+                ),
+                LibraryScreen(
+                  onGoSearch: _goSearch,
+                  onPlay: _putar,
+                  onPlayAcak: _putarAcak,
+                ),
                 DownloadsScreen(onGoSearch: _goSearch),
               ],
             ),

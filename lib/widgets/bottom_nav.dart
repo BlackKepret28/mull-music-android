@@ -9,11 +9,18 @@ class NavItem {
   final String label;
 }
 
+/// Ikon sengaja pakai keluarga "rounded", bukan "outlined" bawaan.
+/// Sudutnya bulat, jadi nyambung sama panel kaca yang juga membulat;
+/// yang outlined kelihatan kaku dan kuno di sebelahnya.
 const navItems = <NavItem>[
-  NavItem(icon: Icons.home_outlined, iconAktif: Icons.home, label: 'Beranda'),
-  NavItem(icon: Icons.search_outlined, iconAktif: Icons.search, label: 'Cari'),
-  NavItem(icon: Icons.library_music_outlined, iconAktif: Icons.library_music, label: 'Pustaka'),
-  NavItem(icon: Icons.download_outlined, iconAktif: Icons.download, label: 'Unduhan'),
+  NavItem(icon: Icons.home_outlined, iconAktif: Icons.home_rounded, label: 'Beranda'),
+  NavItem(icon: Icons.search_rounded, iconAktif: Icons.search_rounded, label: 'Cari'),
+  NavItem(icon: Icons.album_outlined, iconAktif: Icons.album_rounded, label: 'Pustaka'),
+  NavItem(
+    icon: Icons.arrow_circle_down_outlined,
+    iconAktif: Icons.arrow_circle_down_rounded,
+    label: 'Unduhan',
+  ),
 ];
 
 /// Navigasi bawah bikinan sendiri.
@@ -31,7 +38,7 @@ class BottomNav extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return SizedBox(
-      height: 60,
+      height: 62,
       child: Row(
         children: [
           for (var i = 0; i < navItems.length; i++)
@@ -74,11 +81,33 @@ class _Tombol extends StatelessWidget {
       button: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(aktif ? item.iconAktif : item.icon, size: 23, color: warna),
+            // Pil aksen di belakang ikon yang aktif. Lebih kebaca daripada
+            // cuma beda warna, apalagi di atas panel kaca.
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              width: 44,
+              height: 26,
+              decoration: BoxDecoration(
+                color: aktif ? warnaAktif.withValues(alpha: 0.16) : Colors.transparent,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: Icon(
+                    aktif ? item.iconAktif : item.icon,
+                    key: ValueKey(aktif),
+                    size: 21,
+                    color: warna,
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 3),
             Text(
               item.label,
