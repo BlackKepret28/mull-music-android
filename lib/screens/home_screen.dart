@@ -221,6 +221,10 @@ class _PetakCepat extends StatelessWidget {
       child: GridView(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
+        // padding wajib eksplisit: scroll view bersarang yang padding-nya
+        // null otomatis memakai MediaQuery.padding, jadi muncul celah
+        // sebesar inset navigasi bawah (kejadian di Infinix).
+        padding: EdgeInsets.zero,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           mainAxisSpacing: 10,
@@ -429,6 +433,7 @@ class _SampulPlaylistKotak extends StatelessWidget {
           ),
         _ => GridView.count(
             crossAxisCount: 2,
+            padding: EdgeInsets.zero,
             physics: const NeverScrollableScrollPhysics(),
             children: [
               for (final u in sampul)

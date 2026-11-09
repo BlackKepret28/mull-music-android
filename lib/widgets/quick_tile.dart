@@ -68,6 +68,7 @@ class QuickTile extends StatelessWidget {
     if (mozaik != null && mozaik.length >= 4) {
       return GridView.count(
         crossAxisCount: 2,
+        padding: EdgeInsets.zero,
         physics: const NeverScrollableScrollPhysics(),
         children: [
           for (final u in mozaik.take(4)) Artwork(url: u, size: 26, radius: 0),

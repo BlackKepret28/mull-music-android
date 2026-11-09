@@ -32,6 +32,7 @@ class _SampulPlaylist extends StatelessWidget {
         height: 48,
         child: GridView.count(
           crossAxisCount: 2,
+          padding: EdgeInsets.zero,
           physics: const NeverScrollableScrollPhysics(),
           children: [
             for (final u in sampul) Artwork(url: u, size: 24, radius: 0),

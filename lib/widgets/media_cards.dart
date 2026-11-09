@@ -163,6 +163,7 @@ class PlaylistCard extends StatelessWidget {
                 1 || 2 || 3 => Artwork(url: sampul.first, size: double.infinity, radius: 0),
                 _ => GridView.count(
                     crossAxisCount: 2,
+                    padding: EdgeInsets.zero,
                     physics: const NeverScrollableScrollPhysics(),
                     children: [
                       for (final u in sampul) Artwork(url: u, size: double.infinity, radius: 0),
