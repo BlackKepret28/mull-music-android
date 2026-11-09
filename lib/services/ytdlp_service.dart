@@ -38,6 +38,7 @@ class YtDlpService extends ChangeNotifier {
   Future<void>? _siapan;
 
   final _cacheCari = <String, List<Track>>{};
+  final _cacheStream = <String, _UrlTersimpan>{};
 
   void _set(EngineStatus s, {String langkah = '', String? error}) {
     _status = s;
@@ -69,7 +70,7 @@ class YtDlpService extends ChangeNotifier {
       _set(EngineStatus.siap);
     } catch (e) {
       _siapan = null; // biar bisa dicoba ulang
-      _set(EngineStatus.gagal, error: _pesanRamah(e));
+      _set(EngineStatus.gagal, error: pesanRamah(e));
       rethrow;
     }
   }
@@ -86,7 +87,7 @@ class YtDlpService extends ChangeNotifier {
       return _version;
     } catch (e) {
       _set(EngineStatus.siap);
-      throw Exception(_pesanRamah(e));
+      throw Exception(pesanRamah(e));
     }
   }
 
@@ -125,7 +126,7 @@ class YtDlpService extends ChangeNotifier {
           .where((t) => t.id.isNotEmpty)
           .toList(growable: false);
     } catch (e) {
-      throw Exception(_pesanRamah(e));
+      throw Exception(pesanRamah(e));
     }
   }
 
@@ -144,12 +145,86 @@ class YtDlpService extends ChangeNotifier {
       }
       return [Track.fromYtDlp(info)];
     } catch (e) {
-      throw Exception(_pesanRamah(e));
+      throw Exception(pesanRamah(e));
     }
   }
 
+  /// Format audio yang diminta: utamakan m4a (paling aman diputar Android),
+  /// baru opus, baru apa pun yang ada.
+  static const _formatAudio = 'bestaudio[ext=m4a]/bestaudio[acodec=opus]/bestaudio';
+
+  /// Video: utamakan H.264 (avc1) daripada AV1 supaya HP lama nggak tersiksa.
+  static const _formatVideo =
+      'bv*[height<=720][vcodec^=avc1]+ba[ext=m4a]/b[height<=720][vcodec^=avc1]/bv*[height<=720]+ba/b[height<=720]';
+
+  /// Klien YouTube yang biasanya nggak butuh JavaScript buat kasih URL.
+  /// Kalau gagal, kita ulang tanpa ini dan biarkan QuickJS kerja (lambat).
+  static const _klienCepat = ['--extractor-args', 'youtube:player_client=android_vr,web_safari'];
+
+  /// URL stream langsung buat diputar just_audio.
+  ///
+  /// Ini bagian yang mahal: tanpa jalur cepat, QuickJS butuh 25-35 detik.
+  /// Hasilnya disimpan karena URL YouTube berlaku beberapa jam.
+  Future<String> streamUrl(Track t, {bool video = false}) async {
+    final kunci = '${t.id}|$video';
+    final tersimpan = _cacheStream[kunci];
+    if (tersimpan != null && !tersimpan.kedaluwarsa) return tersimpan.url;
+
+    await ensureReady();
+
+    final format = video ? _formatVideo : _formatAudio;
+    final url = t.resolvableUrl;
+
+    // Coba jalur cepat dulu, baru jalur QuickJS.
+    Object? galatTerakhir;
+    for (final cepat in [true, false]) {
+      try {
+        final args = <String>[
+          '-g',
+          '-f',
+          format,
+          '--no-playlist',
+          '--no-warnings',
+          if (cepat) ..._klienCepat,
+          url,
+        ];
+        final r = await YtDlp.exec(args);
+        if (r['exitCode'] != 0) {
+          galatTerakhir = Exception((r['err'] as String?) ?? 'exit ${r['exitCode']}');
+          continue;
+        }
+        // `-g` nyetak satu URL per baris. Buat audio cuma ada satu;
+        // buat video bisa dua (video + audio terpisah).
+        final baris = (r['out'] as String? ?? '')
+            .split('\n')
+            .map((l) => l.trim())
+            .where((l) => l.startsWith('http'))
+            .toList();
+        if (baris.isEmpty) {
+          galatTerakhir = Exception('yt-dlp nggak ngasih URL');
+          continue;
+        }
+        _cacheStream[kunci] = _UrlTersimpan(baris.first);
+        return baris.first;
+      } catch (e) {
+        galatTerakhir = e;
+      }
+    }
+
+    throw Exception(pesanRamah(galatTerakhir ?? 'Gagal ambil URL'));
+  }
+
+  /// Siapkan URL di latar belakang supaya lagu berikutnya nggak nunggu.
+  /// Sengaja nggak melempar galat: ini cuma usaha tambahan.
+  void prefetch(Track t, {bool video = false}) {
+    final kunci = '${t.id}|$video';
+    final ada = _cacheStream[kunci];
+    if (ada != null && !ada.kedaluwarsa) return;
+    streamUrl(t, video: video).ignore();
+  }
+
   /// Ubah pesan error yt-dlp jadi bahasa yang kebaca pengguna.
-  static String _pesanRamah(Object e) {
+  static String pesanRamah(Object e) {
     final s = e.toString();
     final l = s.toLowerCase();
 
@@ -175,4 +250,15 @@ class YtDlpService extends ChangeNotifier {
     final bersih = s.replaceFirst('Exception: ', '').trim();
     return bersih.length > 160 ? '${bersih.substring(0, 160)}...' : bersih;
   }
+}
+
+/// URL stream + kapan dia dianggap basi.
+class _UrlTersimpan {
+  _UrlTersimpan(this.url) : dibuat = DateTime.now();
+
+  final String url;
+  final DateTime dibuat;
+
+  /// URL YouTube biasanya tahan ~6 jam. Dipotong 3 jam biar aman.
+  bool get kedaluwarsa => DateTime.now().difference(dibuat) > const Duration(hours: 3);
 }

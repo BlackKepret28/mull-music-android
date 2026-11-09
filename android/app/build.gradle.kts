@@ -19,7 +19,10 @@ android {
         applicationId = "com.mulya.mullmusic"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // 29 (Android 10) karena penyimpanan pakai MediaStore RELATIVE_PATH,
+        // yang baru ada mulai API 29. Di bawah itu harus pakai izin
+        // WRITE_EXTERNAL_STORAGE gaya lama, dan itu sengaja dihindari.
+        minSdk = maxOf(flutter.minSdkVersion, 29)
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)

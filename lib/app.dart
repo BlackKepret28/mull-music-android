@@ -5,18 +5,23 @@ import 'shell.dart';
 import 'theme.dart';
 
 class MullApp extends StatefulWidget {
-  const MullApp({super.key});
+  const MullApp({super.key, this.settings});
+
+  /// Pengaturan yang sudah dibaca dari disk. Kalau null (mis. di tes),
+  /// dipakai pengaturan bawaan yang nggak disimpan ke mana-mana.
+  final AppSettings? settings;
 
   @override
   State<MullApp> createState() => _MullAppState();
 }
 
 class _MullAppState extends State<MullApp> {
-  final _settings = AppSettings();
+  late final AppSettings _settings = widget.settings ?? AppSettings();
+  late final bool _punyaSendiri = widget.settings == null;
 
   @override
   void dispose() {
-    _settings.dispose();
+    if (_punyaSendiri) _settings.dispose();
     super.dispose();
   }
 

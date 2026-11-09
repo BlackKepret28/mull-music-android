@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../models/track.dart';
 import '../services/ytdlp_service.dart';
+import '../widgets/bottom_nav.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/track_tile.dart';
 
 /// Cari lagu atau video lewat yt-dlp (`ytsearch`), atau tempel tautan langsung.
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key, this.onTapTrack, this.onDownload});
+  const SearchScreen({super.key, this.onPlay, this.onDownload});
 
-  final void Function(Track track)? onTapTrack;
+  final void Function(List<Track> daftar, int indeks)? onPlay;
   final void Function(Track track)? onDownload;
 
   @override
@@ -132,11 +133,11 @@ class _SearchScreenState extends State<SearchScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(top: 4, bottom: 16),
+      padding: EdgeInsets.only(top: 4, bottom: RuangBawah.of(context) + 16),
       itemCount: hasil.length,
       itemBuilder: (_, i) => TrackTile(
         track: hasil[i],
-        onTap: widget.onTapTrack == null ? null : () => widget.onTapTrack!(hasil[i]),
+        onTap: widget.onPlay == null ? null : () => widget.onPlay!(hasil, i),
         onDownload: widget.onDownload == null ? null : () => widget.onDownload!(hasil[i]),
       ),
     );

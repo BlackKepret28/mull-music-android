@@ -70,6 +70,33 @@ class YtDlp {
   /// Jalankan yt-dlp dengan argumen mentah (buat diagnosa).
   static Future<Map<String, dynamic>> exec(List<String> args) => _call('exec', {'args': args});
 
+  /// Unduh lalu pindahkan ke penyimpanan bersama (Music/Mull atau Movies/Mull).
+  /// Balikin `{exitCode, ms, files: [{name, size, uri, video}], err}`.
+  static Future<Map<String, dynamic>> downloadMedia(
+    String id,
+    String url, {
+    List<String> args = const [],
+    bool video = false,
+  }) =>
+      _call('downloadMedia', {'id': id, 'url': url, 'args': args, 'video': video});
+
+  /// Isi Music/Mull dan Movies/Mull menurut MediaStore.
+  static Future<List<Map<String, dynamic>>> listLibrary() async {
+    final r = await _call('listLibrary');
+    return ((r['items'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList(growable: false);
+  }
+
+  static Future<bool> deleteMedia(String uri) async =>
+      (await _call('deleteMedia', {'uri': uri}))['deleted'] == true;
+
+  /// Minta izin notifikasi (Android 13+). Tanpa ini, notifikasi pemutar dan
+  /// kontrol di layar kunci nggak muncul.
+  static Future<bool> ensureNotificationPermission() async =>
+      (await _call('ensureNotificationPermission'))['granted'] == true;
+
   static Future<bool> autorun() async => (await _call('launchArgs'))['autorun'] == true;
 
   static Future<String> writeReport(String text) async =>

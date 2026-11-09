@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/track.dart';
+import '../widgets/bottom_nav.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/shelf.dart';
 import 'settings_screen.dart';
@@ -11,7 +12,7 @@ class HomeScreen extends StatelessWidget {
     super.key,
     this.recent = const [],
     this.downloaded = const [],
-    this.onTapTrack,
+    this.onPlay,
     this.onGoSearch,
   });
 
@@ -21,7 +22,7 @@ class HomeScreen extends StatelessWidget {
   /// Lagu yang sudah ada file-nya di HP.
   final List<Track> downloaded;
 
-  final void Function(Track track)? onTapTrack;
+  final void Function(List<Track> daftar, int indeks)? onPlay;
   final VoidCallback? onGoSearch;
 
   @override
@@ -54,17 +55,17 @@ class HomeScreen extends StatelessWidget {
               ),
             )
           : ListView(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: EdgeInsets.only(bottom: RuangBawah.of(context) + 16),
               children: [
                 Shelf(
                   title: 'Baru diputar',
                   items: recent,
-                  onTapItem: onTapTrack,
+                  onTapItem: (t) => onPlay?.call(recent, recent.indexOf(t)),
                 ),
                 Shelf(
                   title: 'Sudah diunduh',
                   items: downloaded,
-                  onTapItem: onTapTrack,
+                  onTapItem: (t) => onPlay?.call(downloaded, downloaded.indexOf(t)),
                 ),
               ],
             ),

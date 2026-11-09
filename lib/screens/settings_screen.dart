@@ -34,6 +34,31 @@ class SettingsScreen extends StatelessWidget {
             subtitle: const Text('Matikan kalau app terasa berat.'),
           ),
           const Divider(height: 24),
+          const _SectionTitle('Unduhan'),
+          RadioGroup<String>(
+            groupValue: s.formatAudio,
+            onChanged: (v) => s.formatAudio = v ?? 'm4a',
+            child: const Column(
+              children: [
+                RadioListTile<String>(
+                  value: 'm4a',
+                  title: Text('m4a (AAC)'),
+                  subtitle: Text('Paling aman, kebaca hampir semua app musik.'),
+                ),
+                RadioListTile<String>(
+                  value: 'opus',
+                  title: Text('opus'),
+                  subtitle: Text('Berkas lebih kecil, tapi app lama kadang nolak.'),
+                ),
+              ],
+            ),
+          ),
+          const ListTile(
+            leading: Icon(Icons.folder_outlined),
+            title: Text('Tempat simpan'),
+            subtitle: Text('Music/Mull buat lagu, Movies/Mull buat video.'),
+          ),
+          const Divider(height: 24),
           const _SectionTitle('Mesin unduh'),
           const _BarisYtDlp(),
           ListTile(
