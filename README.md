@@ -90,6 +90,47 @@ Pekerjaan itu berat:
   tautan lagu berikutnya di latar belakang supaya jeda ini cuma kerasa sekali.
 - **Berkas yang sudah diunduh** langsung jalan, tanpa internet.
 
+## Rilis
+
+APK rilis dibangun GitHub Actions (`.github/workflows/release.yml`) waktu tag
+`v*` di-push. Tag harus sama dengan `version:` di `pubspec.yaml`, tanpa huruf
+`v` dan tanpa bagian `+build`; kalau beda, workflow-nya berhenti.
+
+```bash
+git tag v0.1.0
+```
+
+```bash
+git push origin v0.1.0
+```
+
+Sebelum rilis pertama, kunci tanda tangan harus dibuat sekali:
+
+```bash
+keytool -genkey -v -keystore mull.jks -keyalg RSA -keysize 2048 -validity 10000 -alias mull
+```
+
+Simpan `mull.jks` di tempat aman dan **jangan pernah di-commit**. Lalu isi
+empat secret di Settings > Secrets and variables > Actions pada repo ini:
+
+| Secret | Isi |
+| --- | --- |
+| `KEYSTORE_BASE64` | isi `mull.jks` dalam base64 |
+| `KEYSTORE_PASSWORD` | kata sandi keystore |
+| `KEY_ALIAS` | `mull` |
+| `KEY_PASSWORD` | kata sandi kunci |
+
+Untuk mengubah `mull.jks` jadi base64 di PowerShell:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("mull.jks")) | Set-Clipboard
+```
+
+Kalau mau menandatangani dari laptop sendiri, bikin `android/key.properties`
+(sudah masuk `.gitignore`) berisi `storeFile`, `storePassword`, `keyAlias`,
+dan `keyPassword`. Tanpa berkas itu, build rilis memakai kunci debug supaya
+tetap bisa dijalankan, tapi APK seperti itu jangan dibagikan.
+
 ## Lisensi
 
 GPL-3.0. Lihat berkas `LICENSE`.

@@ -1,8 +1,18 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Kunci tanda tangan APK rilis. Berkasnya JANGAN pernah di-commit:
+// di laptop dibuat sendiri, di GitHub Actions ditulis dari secret.
+val keyProps = Properties().apply {
+    val f = rootProject.file("key.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val adaKunci = keyProps.getProperty("storeFile") != null
 
 android {
     namespace = "com.mulya.mullmusic"
@@ -53,11 +63,27 @@ android {
         }
     }
 
+    signingConfigs {
+        if (adaKunci) {
+            create("rilis") {
+                storeFile = rootProject.file(keyProps.getProperty("storeFile"))
+                storePassword = keyProps.getProperty("storePassword")
+                keyAlias = keyProps.getProperty("keyAlias")
+                keyPassword = keyProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Tanpa key.properties, dipakai kunci debug supaya
+            // `flutter build apk --release` di laptop tetap jalan.
+            // APK yang dibagikan HARUS pakai kunci rilis.
+            signingConfig = if (adaKunci) {
+                signingConfigs.getByName("rilis")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
