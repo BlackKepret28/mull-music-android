@@ -37,6 +37,13 @@ class YtDlpService extends ChangeNotifier {
 
   Future<void>? _siapan;
 
+  /// Diisi dari pengaturan waktu start: yt-dlp terakhir diperbarui lebih dari
+  /// seminggu lalu, jadi sebaiknya diperbarui lagi.
+  bool perluUpdateBerkala = false;
+
+  /// Dipanggil setelah update berhasil, buat nyatet tanggalnya.
+  void Function()? onDiperbarui;
+
   final _cacheCari = <String, List<Track>>{};
   final _cacheStream = <String, _UrlTersimpan>{};
 
@@ -61,10 +68,18 @@ class YtDlpService extends ChangeNotifier {
       _version = await YtDlp.version();
       // Null berarti masih yt-dlp bawaan paket, yang umurnya setahun dan
       // biasanya sudah ditolak YouTube. Wajib di-update sekali.
-      if (_version == null) {
+      // Selain itu, YouTube sering berubah, jadi diperbarui lagi tiap minggu.
+      if (_version == null || perluUpdateBerkala) {
         _set(EngineStatus.nyiapin, langkah: 'Memperbarui yt-dlp...');
-        final r = await YtDlp.update();
-        _version = r['version'] as String?;
+        try {
+          final r = await YtDlp.update();
+          _version = r['version'] as String?;
+          onDiperbarui?.call();
+        } catch (e) {
+          // Update mingguan gagal (mis. internet mati) bukan alasan buat
+          // bikin app nggak bisa dipakai, asal yt-dlp lamanya masih ada.
+          if (_version == null) rethrow;
+        }
       }
 
       _set(EngineStatus.siap);
@@ -83,6 +98,8 @@ class YtDlpService extends ChangeNotifier {
       final r = await YtDlp.update();
       _version = r['version'] as String?;
       _cacheCari.clear();
+      _cacheStream.clear();
+      onDiperbarui?.call();
       _set(EngineStatus.siap);
       return _version;
     } catch (e) {

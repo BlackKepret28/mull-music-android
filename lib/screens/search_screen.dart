@@ -5,13 +5,14 @@ import '../services/ytdlp_service.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/track_tile.dart';
+import 'playlist_screen.dart';
 
 /// Cari lagu atau video lewat yt-dlp (`ytsearch`), atau tempel tautan langsung.
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key, this.onPlay, this.onDownload});
 
   final void Function(List<Track> daftar, int indeks)? onPlay;
-  final void Function(Track track)? onDownload;
+  final void Function(Track track, {bool video})? onDownload;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -139,6 +140,9 @@ class _SearchScreenState extends State<SearchScreen> {
         track: hasil[i],
         onTap: widget.onPlay == null ? null : () => widget.onPlay!(hasil, i),
         onDownload: widget.onDownload == null ? null : () => widget.onDownload!(hasil[i]),
+        onDownloadVideo:
+            widget.onDownload == null ? null : () => widget.onDownload!(hasil[i], video: true),
+        onTambahKePlaylist: () => tampilkanTambahKePlaylist(context, hasil[i]),
       ),
     );
   }

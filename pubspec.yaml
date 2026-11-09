@@ -41,6 +41,7 @@ dependencies:
   http: ^1.6.0
   cached_network_image: ^4.0.6
   liquid_glass_widgets: ^1.17.0
+  video_player: ^2.14.1
 
 dev_dependencies:
   flutter_test:

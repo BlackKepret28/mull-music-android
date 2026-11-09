@@ -5,6 +5,8 @@ import '../services/library_service.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/track_tile.dart';
+import 'playlist_screen.dart';
+import 'video_screen.dart';
 
 /// Pustaka: lagu dan video yang sudah ada berkasnya di HP, plus playlist lokal.
 class LibraryScreen extends StatefulWidget {
@@ -123,14 +125,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     title: 'Belum ada video',
                     message: 'Video yang kamu unduh disimpan di Movies/Mull.',
                   ),
-                  onPlay: widget.onPlay,
+                  // Video dibuka di pemutar video layar penuh, bukan di
+                  // pemutar audio.
+                  onBuka: (t) => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => VideoScreen(track: t)),
+                  ),
                   onHapus: _hapus,
                 ),
-                const EmptyState(
-                  icon: Icons.queue_music_outlined,
-                  title: 'Belum ada playlist',
-                  message: 'Playlist yang kamu bikin sendiri muncul di sini.',
-                ),
+                PlaylistTab(onPlay: widget.onPlay),
               ],
             );
           },
@@ -145,12 +147,19 @@ class _Daftar extends StatelessWidget {
     required this.items,
     required this.kosong,
     this.onPlay,
+    this.onBuka,
     this.onHapus,
   });
 
   final List<Track> items;
   final Widget kosong;
+
+  /// Dipakai daftar lagu: ketukan memutar seluruh daftar dari posisi itu.
   final void Function(List<Track> daftar, int indeks)? onPlay;
+
+  /// Dipakai daftar video: ketukan membuka satu berkas.
+  final void Function(Track t)? onBuka;
+
   final void Function(Track t)? onHapus;
 
   @override
@@ -176,7 +185,12 @@ class _Daftar extends StatelessWidget {
         ),
         child: TrackTile(
           track: items[i],
-          onTap: onPlay == null ? null : () => onPlay!(items, i),
+          onTap: onBuka != null
+              ? () => onBuka!(items[i])
+              : onPlay == null
+                  ? null
+                  : () => onPlay!(items, i),
+          onTambahKePlaylist: () => tampilkanTambahKePlaylist(context, items[i]),
         ),
       ),
     );

@@ -4,15 +4,22 @@ import 'package:flutter/material.dart';
 import '../models/track.dart';
 import '../services/player_service.dart';
 import '../widgets/artwork.dart';
+import '../widgets/lyrics_view.dart';
 
 /// Layar Sedang diputar, muncul dari bawah waktu bar pemutar mini diketuk.
-class NowPlayingScreen extends StatelessWidget {
+class NowPlayingScreen extends StatefulWidget {
   const NowPlayingScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final player = MullAudioHandler.instance;
+  State<NowPlayingScreen> createState() => _NowPlayingScreenState();
+}
 
+class _NowPlayingScreenState extends State<NowPlayingScreen> {
+  final _player = MullAudioHandler.instance;
+  bool _lirik = false;
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -20,20 +27,28 @@ class NowPlayingScreen extends StatelessWidget {
           icon: const Icon(Icons.keyboard_arrow_down, size: 30),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: const Text(
-          'Sedang diputar',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        title: Text(
+          _lirik ? 'Lirik' : 'Sedang diputar',
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: _lirik ? 'Tampilkan sampul' : 'Tampilkan lirik',
+            icon: Icon(_lirik ? Icons.album_outlined : Icons.lyrics_outlined),
+            onPressed: () => setState(() => _lirik = !_lirik),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: StreamBuilder<MediaItem?>(
-        stream: player.mediaItem,
+        stream: _player.mediaItem,
         builder: (context, snap) {
           final item = snap.data;
           if (item == null) {
             return const Center(child: Text('Nggak ada yang diputar.'));
           }
-          return _Isi(player: player, item: item);
+          return _Isi(player: _player, item: item, lirik: _lirik);
         },
       ),
     );
@@ -41,10 +56,11 @@ class NowPlayingScreen extends StatelessWidget {
 }
 
 class _Isi extends StatelessWidget {
-  const _Isi({required this.player, required this.item});
+  const _Isi({required this.player, required this.item, required this.lirik});
 
   final MullAudioHandler player;
   final MediaItem item;
+  final bool lirik;
 
   @override
   Widget build(BuildContext context) {
@@ -57,9 +73,19 @@ class _Isi extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 28),
         child: Column(
           children: [
-            const Spacer(flex: 2),
-            Artwork(url: item.artUri?.toString(), size: sisiSampul, radius: 16),
-            const Spacer(flex: 2),
+            Expanded(
+              flex: 5,
+              child: lirik
+                  ? _PanelLirik(player: player, item: item)
+                  : Center(
+                      child: Artwork(
+                        url: item.artUri?.toString(),
+                        size: sisiSampul,
+                        radius: 16,
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 20),
             Text(
               item.title,
               maxLines: 2,
@@ -85,10 +111,37 @@ class _Isi extends StatelessWidget {
             _Seekbar(player: player, total: item.duration),
             const SizedBox(height: 8),
             _Kontrol(player: player),
-            const Spacer(flex: 2),
+            const SizedBox(height: 28),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Lirik yang ikut posisi lagu.
+class _PanelLirik extends StatelessWidget {
+  const _PanelLirik({required this.player, required this.item});
+
+  final MullAudioHandler player;
+  final MediaItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Duration>(
+      stream: player.positionStream,
+      builder: (context, snap) {
+        return LyricsView(
+          track: Track(
+            id: item.id,
+            title: item.title,
+            artist: item.artist,
+            duration: item.duration,
+          ),
+          posisi: snap.data ?? Duration.zero,
+          onSeek: player.seek,
+        );
+      },
     );
   }
 }

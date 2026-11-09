@@ -3,6 +3,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'app.dart';
 import 'services/player_service.dart';
+import 'services/ytdlp_service.dart';
 import 'settings.dart';
 
 Future<void> main() async {
@@ -13,6 +14,13 @@ Future<void> main() async {
   await LiquidGlassWidgets.initialize();
 
   final settings = await AppSettings.muat();
+
+  // YouTube sering berubah, jadi yt-dlp diperbarui lagi kalau sudah lewat
+  // seminggu. Dikerjakan di dalam ensureReady, bukan di sini, supaya start
+  // app nggak kehalang jaringan.
+  YtDlpService.instance
+    ..perluUpdateBerkala = settings.ytdlpPerluDiperbarui
+    ..onDiperbarui = settings.tandaiYtDlpDiperbarui;
 
   // Daftarkan pemutar ke sistem supaya notifikasi dan kontrol di layar kunci
   // langsung jalan begitu lagu pertama diputar.

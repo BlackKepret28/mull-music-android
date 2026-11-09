@@ -10,6 +10,7 @@ import 'screens/search_screen.dart';
 import 'services/download_service.dart';
 import 'services/library_service.dart';
 import 'services/player_service.dart';
+import 'services/playlist_service.dart';
 import 'services/ytdlp_service.dart';
 import 'settings.dart';
 import 'ytdlp.dart';
@@ -47,6 +48,12 @@ class _AppShellState extends State<AppShell> {
     // sudah siap waktu pengguna selesai ngetik pencarian pertamanya.
     // Galatnya ditangani YtDlpService dan muncul di layar Cari.
     YtDlpService.instance.ensureReady().ignore();
+
+    // Playlist dibaca dari disk. Ditunda ke setelah frame pertama karena
+    // `muat()` langsung memberi tahu pendengarnya.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PlaylistService.instance.muat();
+    });
   }
 
   void _goSearch() => setState(() => _tab = 1);

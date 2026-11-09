@@ -10,12 +10,16 @@ class TrackTile extends StatelessWidget {
     required this.track,
     this.onTap,
     this.onDownload,
+    this.onDownloadVideo,
+    this.onTambahKePlaylist,
     this.selected = false,
   });
 
   final Track track;
   final VoidCallback? onTap;
   final VoidCallback? onDownload;
+  final VoidCallback? onDownloadVideo;
+  final VoidCallback? onTambahKePlaylist;
 
   /// Sedang diputar: judulnya diwarnai aksen.
   final bool selected;
@@ -69,12 +73,25 @@ class TrackTile extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(left: 8),
                 child: Icon(Icons.download_done, size: 18, color: cs.primary),
-              )
-            else if (onDownload != null)
-              IconButton(
-                tooltip: 'Unduh',
-                icon: const Icon(Icons.download_outlined, size: 22),
-                onPressed: onDownload,
+              ),
+            if (onDownload != null || onTambahKePlaylist != null)
+              PopupMenuButton<String>(
+                tooltip: 'Opsi lain',
+                icon: const Icon(Icons.more_vert, size: 20),
+                onSelected: (v) => switch (v) {
+                  'unduh' => onDownload?.call(),
+                  'video' => onDownloadVideo?.call(),
+                  'playlist' => onTambahKePlaylist?.call(),
+                  _ => null,
+                },
+                itemBuilder: (_) => [
+                  if (onDownload != null && !track.isDownloaded)
+                    const PopupMenuItem(value: 'unduh', child: Text('Unduh lagu')),
+                  if (onDownloadVideo != null && !track.isDownloaded)
+                    const PopupMenuItem(value: 'video', child: Text('Unduh video 720p')),
+                  if (onTambahKePlaylist != null)
+                    const PopupMenuItem(value: 'playlist', child: Text('Tambah ke playlist')),
+                ],
               ),
           ],
         ),
