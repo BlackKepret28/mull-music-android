@@ -215,13 +215,18 @@ class _PetakCepat extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: GridView.count(
-        crossAxisCount: 2,
+      // mainAxisExtent, bukan childAspectRatio: tingginya harus pas 52
+      // (setinggi sampulnya) di lebar layar mana pun. Pakai rasio, tingginya
+      // ikut lebar layar dan isinya meluber di HP sempit.
+      child: GridView(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 52 / 13.6,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          mainAxisExtent: 52,
+        ),
         children: petak,
       ),
     );
