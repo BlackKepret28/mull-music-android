@@ -110,6 +110,18 @@ Versi Android dari Mull Music App (versi Windows: repo privat `BlackKepret28/mul
   - Karena QuickJS lambat (~25-35 dtk per video YouTube), Cari/putar langsung butuh cache hasil (URL stream + info), prefetch lagu berikutnya, dan indikator loading yang jujur. Pertimbangkan `--extractor-args youtube:player_client=...` yang nggak butuh JS buat audio.
   - Pilihan format video bawaan: utamakan H.264 (`vcodec^=avc1`) daripada AV1 supaya aman di HP lama; AV1 kepilih otomatis di spike.
   - Folder spike di HP dihapus setelah tes (130 MB); laporannya disimpan.
+  - **Ruang HP Mulya cuma sisa ~600-800 MB dari 228 GB.** `adb install -r` sering ditolak `INSUFFICIENT_STORAGE` karena butuh ruang buat dua salinan sekaligus. Cara yang jalan: `adb uninstall com.mulya.mullmusic` dulu baru `adb install`. Data app cuma belasan KB jadi nggak ada yang hilang berarti, tapi pengaturan/playlist/riwayat ikut kehapus.
+
+- **9 Nov sore: rombakan UI atas permintaan Mulya.**
+  - Ikon navbar ganti ke keluarga rounded + pil aksen di tab aktif (yang outlined dibilang "kuno dan jelek").
+  - Pustaka dirombak: judul besar + ringkasan, SegmentedPill ganti TabBar, Lagu dapat Putar/Acak/urutkan, Video jadi grid kartu 16:9 dengan badge durasi, Playlist jadi grid kartu mozaik.
+  - Beranda ditulis ulang mengikuti `renderHome()` versi Windows: salam menurut jam (aturan jamnya disalin persis), petak akses cepat (playlist dulu lalu pintasan tetap, dua kolom buat HP), kartu "Putar dari tautan" yang baca papan klip, rak Baru diputar / Baru diunduh / Playlist kamu, sambutan waktu kosong.
+  - `RecentService` baru (`recent.json`, maks 50) supaya rak "Baru diputar" ada isinya. Dicatat cuma kalau lagunya benar-benar jalan.
+  - Ikon app pakai logo Mull dari `mull-git/assets/mull.png` (violet #6242FB): legacy 5 kepadatan + ikon adaptif (latar violet, foreground 62%, monochrome diisi).
+  - Penandatanganan rilis: `android/key.properties` (opsional, di-ignore) -> signingConfig rilis; tanpa itu jatuh ke kunci debug. Workflow `.github/workflows/release.yml` + bagian Rilis di README.
+  - Jebakan yang ketemu: `childAspectRatio` di GridView bikin tinggi petak ikut lebar layar sampai isinya meluber; pakai `mainAxisExtent` kalau tingginya memang harus tetap.
+  - APK release arm64 sekarang 63,4 MB. `flutter analyze` bersih, `flutter test` 62 lulus.
+  - BELUM DITES DI HP: seluruh rombakan UI ini. HP lepas dari USB lagi sebelum sempat dipasang.
 
 ## Yang harus dites duluan waktu HP nyambung lagi
 Urut dari yang paling mungkin bermasalah:
@@ -119,4 +131,7 @@ Urut dari yang paling mungkin bermasalah:
 4. **Unduh video 720p** lalu buka dari Pustaka > Video.
 5. **Playlist**: bikin, tambah lagu, geser urutan, tutup app, buka lagi (harus masih ada).
 6. **Tempel tautan** di Cari (jalur QuickJS ~30 dtk).
-7. **FPS kaca** waktu menggulir daftar panjang. Kalau berat, matikan di Pengaturan > Efek kaca, atau turunkan `blur`/`frost` di `lib/widgets/glass_surface.dart`.
+7. **Beranda baru**: salam, petak akses cepat, kartu Putar dari tautan (salin tautan YouTube dulu, lalu ketuk).
+8. **Pustaka baru**: pemilih pil, Putar/Acak, urutkan, grid video, grid playlist.
+9. **Ikon app** di laci aplikasi: harus logo M violet, bukan ikon Flutter.
+10. **FPS kaca** waktu menggulir daftar panjang. Kalau berat, matikan di Pengaturan > Efek kaca, atau turunkan `blur`/`frost` di `lib/widgets/glass_surface.dart`.
