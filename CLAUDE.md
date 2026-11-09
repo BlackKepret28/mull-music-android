@@ -31,34 +31,37 @@ Versi Android dari Mull Music App (versi Windows: repo privat `BlackKepret28/mul
 - AAR ukurannya besar (library 56 MB, ffmpeg 133 MB untuk semua ABI), makanya wajib filter ABI.
 
 ## Struktur
-- `android/app/src/main/kotlin/com/mulya/mullmusic/MainActivity.kt`: MethodChannel `mull/ytdlp` (init, version, updateYtDlp, getInfo, download, cancel, exec, launchArgs, writeReport) + EventChannel `mull/ytdlp/progress` ({id, progress, eta, line}). Semua kerja di thread pool, hasil dikirim balik di main thread.
+- `android/app/src/main/kotlin/com/mulya/mullmusic/MainActivity.kt`: turunan `AudioServiceActivity`. MethodChannel `mull/ytdlp`: init, version, updateYtDlp, getInfo, download, downloadMedia, listLibrary, deleteMedia, cancel, exec, ensureNotificationPermission, launchArgs, writeReport. EventChannel `mull/ytdlp/progress` ({id, progress, eta, line}). Semua kerja di thread pool, hasil dikirim balik di main thread; kecuali izin notifikasi yang wajib di main thread.
 - `lib/ytdlp.dart`: pembungkus channel mentah (1 banding 1 dengan MethodChannel).
-- `lib/services/ytdlp_service.dart`: lapisan di atasnya. `ensureReady()` init sekali per hidup app + update yt-dlp cuma kalau `version()` masih null; `search()` + cache; `perbaruiYtDlp()`; `_pesanRamah()` nerjemahin galat yt-dlp ke bahasa pengguna. Buat tes pakai `YtDlpService.baru()`, jangan `instance`.
-- `lib/main.dart` tipis -> `lib/app.dart` (MaterialApp + tema) -> `lib/shell.dart` (IndexedStack 4 tab + bar pemutar mini).
-- `lib/theme.dart`: tema terang/gelap, aksen violet #6344FB (terang) / #8B7CFF (gelap), sama dengan `--accent` di `ui/shell.css` versi Windows.
-- `lib/settings.dart`: `AppSettings` (ChangeNotifier) + `SettingsScope` (InheritedNotifier). BELUM disimpan ke disk.
-- `lib/models/track.dart`: `Track` (`fromYtDlp`, `fromJson`/`toJson` mirip `playlists.json` Windows) + `formatDuration`.
-- `lib/screens/`: `home_screen` (rak kartu), `search_screen`, `library_screen` (tab Lagu/Video/Playlist), `downloads_screen`, `settings_screen`.
-- `lib/widgets/`: `artwork`, `empty_state`, `mini_player`, `shelf`, `track_tile`.
-- `lib/dev/spike_page.dart`: layar diagnosa (dulu `main.dart` waktu spike), dibuka dari Pengaturan > Diagnosa yt-dlp.
-- Hasil unduhan spike: `getExternalFilesDir("spike")/<id>/`. Laporan: `files/spike-report.txt` (ambil pakai `adb pull /sdcard/Android/data/com.mulya.mullmusic/files/spike-report.txt`). Bisa jalan otomatis: `adb shell am start -n com.mulya.mullmusic/.MainActivity --es autorun true`.
+- `lib/services/ytdlp_service.dart`: `ensureReady()` (init sekali per hidup app, update yt-dlp kalau versinya null atau sudah lewat seminggu), `search()` + cache, `streamUrl()` + cache 3 jam, `prefetch()`, `perbaruiYtDlp()`, `pesanRamah()`. Buat tes pakai `YtDlpService.baru()`.
+- `lib/services/player_service.dart`: `MullAudioHandler` (just_audio + audio_service). Antrean diurus sendiri, bukan ConcatenatingAudioSource. Ada token urutan supaya hasil yt-dlp yang telat nggak menimpa lagu yang sudah diganti.
+- `lib/services/download_service.dart`: antrean unduhan satu per satu, progres dari EventChannel.
+- `lib/services/library_service.dart`: baca Music/Mull dan Movies/Mull dari MediaStore. MediaStore yang jadi sumber kebenaran, bukan daftar sendiri.
+- `lib/services/playlist_service.dart`: `playlists.json` di folder app.
+- `lib/services/lyrics_service.dart`: LRCLIB + parser/penulis LRC + pembersih judul.
+- `lib/main.dart` tipis -> `lib/app.dart` (MaterialApp + tema) -> `lib/shell.dart` (IndexedStack 4 tab + panel kaca bawah).
+- `lib/theme.dart`: tema terang/gelap, aksen violet #6344FB / #8B7CFF, sama dengan `--accent` versi Windows.
+- `lib/settings.dart`: `AppSettings` (shared_preferences) + `SettingsScope`. Isinya tema, efek kaca, format audio, tanggal update yt-dlp terakhir.
+- `lib/models/track.dart`: `Track` + `formatDuration`.
+- `lib/screens/`: `home_screen`, `search_screen`, `library_screen` (Lagu/Video/Playlist), `playlist_screen` (tab + detail + lembar tambah), `downloads_screen`, `now_playing_screen`, `video_screen`, `settings_screen`.
+- `lib/widgets/`: `artwork`, `empty_state`, `mini_player`, `shelf`, `track_tile`, `glass_surface`, `bottom_nav` (+ `RuangBawah`), `lyrics_view`.
+- `lib/dev/spike_page.dart`: layar diagnosa, dibuka dari Pengaturan > Diagnosa yt-dlp.
 - Konten uji (semua Creative Commons): lagu Kevin MacLeod "Carefree" (`music.youtube.com/watch?v=owrhKIN3Y90`), Big Buck Bunny dari Blender (`youtube.com/watch?v=aqz-KE-bpKQ`), Big Buck Bunny di Wikimedia Commons (format terkecil).
 
 ## Rencana
 1. SPIKE (LULUS 9 Nov, jangan diulang): buktiin di HP: init + update yt-dlp, runtime JS jalan (cek `yt-dlp -v`), lagu YT Music jadi m4a/opus, video 720p jadi mp4 (merge ffmpeg), 1 situs non-YouTube. Catat hasil, ukuran APK, waktu init pertama. Kalau runtime JS gagal: STOP, laporkan pilihan ke Mulya, jangan lanjut UI.
-2. Kerangka app (LAGI DIKERJAKAN, branch `batch-2-kerangka`):
+2. Kerangka app (SELESAI di kode, branch `batch-2-kerangka`):
    - [x] tema gelap dan terang, aksen violet
    - [x] navigasi bawah Beranda/Cari/Pustaka/Unduhan
-   - [x] bar pemutar mini (widget-nya; belum nyambung ke audio)
+   - [x] bar pemutar mini + layar Sedang diputar penuh
    - [x] Cari lewat `ytsearch` + tempel tautan
-   - [ ] just_audio + audio_service (latar belakang, notifikasi, layar kunci)
-   - [ ] layar Sedang diputar penuh
-   - [ ] antrean unduhan + simpan ke Music/Mull dan Movies/Mull lewat MediaStore (tanpa izin penyimpanan lama)
-   - [ ] Pustaka + playlist lokal (format JSON mirip `playlists.json` Windows)
-   - [ ] simpan pengaturan ke disk (shared_preferences) + perbarui yt-dlp berkala
-   - [ ] lirik LRCLIB (`.lrc` di sebelah file)
-   - [ ] video pakai video_player atau media_kit
-   - [ ] kaca pakai liquid_glass_widgets di bar pemutar dan navigasi (dengan sakelar mati)
+   - [x] just_audio + audio_service (latar belakang, notifikasi, layar kunci)
+   - [x] antrean unduhan + simpan ke Music/Mull dan Movies/Mull lewat MediaStore
+   - [x] Pustaka + playlist lokal (`playlists.json`)
+   - [x] simpan pengaturan ke disk + perbarui yt-dlp mingguan
+   - [x] lirik LRCLIB (disimpan di folder app, BUKAN di sebelah berkas)
+   - [x] video pakai video_player
+   - [x] kaca pakai liquid_glass_widgets (dengan sakelar mati)
    Sengaja BELUM: Kenali lagu, impor Spotify, akun Firebase, sinkron dengan Windows.
 3. Rilis: GitHub Actions (tag `v*` -> `flutter build apk --release --split-per-abi` -> APK + `.sha256` ke Releases); keystore dibuat Mulya, disimpan sebagai secret base64 (jangan pernah commit atau minta ditempel ke chat); cek update di app (GitHub Releases -> unduh APK -> buka penginstal); README (cara pasang, GPL-3.0, daftar komponen pihak ketiga: yt-dlp Unlicense, youtubedl-android GPL-3.0, ffmpeg sesuai build-nya, QuickJS MIT).
 
@@ -86,7 +89,18 @@ Versi Android dari Mull Music App (versi Windows: repo privat `BlackKepret28/mul
   - Dugaan soal `--flat-playlist` TERBUKTI: pencarian nggak kena QuickJS, jadi hitungan detik, bukan 30 detik.
   - Ruang HP waktu tes tinggal 861 MB dari 228 GB. Install APK release tetap muat.
   - BELUM dites di HP: tempel tautan (jalur QuickJS ~30 dtk), tombol Perbarui yt-dlp, layar Diagnosa dari menu Pengaturan yang baru.
+- **9 Nov 2026 (lanjutan): Langkah 2 selesai di kode.** Commit: kerangka, Cari, lalu pemutar+kaca+unduhan+pustaka, lalu lirik+playlist+video.
+  - DITES DI HP ASLI: muter lagu dari YouTube jalan (Carefree, 0:31/3:26, seekbar jalan, sampul penuh). Panel kaca mengambang kelihatan jelas, sampul di belakangnya kebias dan ngeblur.
+  - BELUM DITES DI HP (HP lepas dari USB sekitar jam 02:15): unduhan + MediaStore, Pustaka, playlist, lirik, pemutar video, notifikasi pemutar, kontrol layar kunci, perbarui yt-dlp mingguan, tempel tautan.
+  - Ukuran APK release arm64 naik bertahap: 58,8 (spike) -> 59,5 (kerangka) -> 60,9 (pemutar+kaca) -> 62,8 MB (unduhan+pustaka).
+  - `flutter analyze` bersih, `flutter test` 52 lulus.
+  - README ditulis ulang (bukan template Flutter lagi) + `LICENSE` GPL-3.0 resmi ditambahkan.
 - Pelajaran build:
+  - **`kotlin.incremental=false` di `android/gradle.properties` WAJIB.** Tanpa itu build release gagal acak: "Could not close incremental caches ... class-fq-name-to-source.tab" di modul plugin mana pun (kejadian di `shared_preferences_android` dan `audio_session`). Drive C: laptop Mulya cuma sisa 0,45 GB dan `~/.gradle` makan 10,2 GB, itu tersangka utamanya.
+  - **POST_NOTIFICATIONS harus diminta sendiri** (Android 13+). Tanpa itu `dumpsys media_session` nunjukin `state=NONE` dan `active=false`, metadata masuk tapi notifikasi pemutar nggak muncul. Diminta sekali, pas pertama memutar atau mengunduh.
+  - MediaStore `RELATIVE_PATH` butuh API 29, makanya `minSdk = maxOf(flutter.minSdkVersion, 29)`.
+  - NavigationBar bawaan Material selalu ngecat latarnya sendiri, jadi nutupin panel kaca. Dipakai `BottomNav` bikinan sendiri.
+  - `ChangeNotifier.notifyListeners()` jangan dipanggil dari `initState` kalau ada widget lain di `IndexedStack` yang ikut mendengarkan: kena "setState() called during build". Pakai `addPostFrameCallback`.
   - `abiFilters` nggak ngefek (plugin Flutter + AAR tetap menyelipkan semua ABI). Yang jalan: `packaging.jniLibs.excludes` buat armeabi-v7a/x86/x86_64 (kecuali `-Psplit-per-abi=true`).
   - Build release WAJIB `proguard-rules.pro` (keep `com.yausername.**`, `com.fasterxml.jackson.**`, commons-compress). Tanpa itu R8 merusak Jackson: init gagal "class w2 is not a concrete class".
   - `YoutubeDL.version()` null sebelum pernah di-update; Dart harus terima `String?`.
@@ -95,3 +109,13 @@ Versi Android dari Mull Music App (versi Windows: repo privat `BlackKepret28/mul
   - Karena QuickJS lambat (~25-35 dtk per video YouTube), Cari/putar langsung butuh cache hasil (URL stream + info), prefetch lagu berikutnya, dan indikator loading yang jujur. Pertimbangkan `--extractor-args youtube:player_client=...` yang nggak butuh JS buat audio.
   - Pilihan format video bawaan: utamakan H.264 (`vcodec^=avc1`) daripada AV1 supaya aman di HP lama; AV1 kepilih otomatis di spike.
   - Folder spike di HP dihapus setelah tes (130 MB); laporannya disimpan.
+
+## Yang harus dites duluan waktu HP nyambung lagi
+Urut dari yang paling mungkin bermasalah:
+1. **Unduh satu lagu** (Carefree) -> cek berkasnya muncul di `Music/Mull` lewat app file manager, dan muncul di tab Pustaka > Lagu.
+2. **Notifikasi pemutar**: harus ada dialog izin pas pertama muter, terus notifikasinya muncul dan tombolnya jalan. Cek ulang pakai `adb shell dumpsys media_session | grep -i state=` (harus PLAYING, bukan NONE).
+3. **Lirik**: buka Sedang diputar > ikon lirik. Carefree itu instrumental jadi kemungkinan "Lirik belum ketemu"; pakai lagu berlirik buat uji sungguhan.
+4. **Unduh video 720p** lalu buka dari Pustaka > Video.
+5. **Playlist**: bikin, tambah lagu, geser urutan, tutup app, buka lagi (harus masih ada).
+6. **Tempel tautan** di Cari (jalur QuickJS ~30 dtk).
+7. **FPS kaca** waktu menggulir daftar panjang. Kalau berat, matikan di Pengaturan > Efek kaca, atau turunkan `blur`/`frost` di `lib/widgets/glass_surface.dart`.
