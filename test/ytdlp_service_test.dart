@@ -64,6 +64,16 @@ void main() {
       expect(s.status, EngineStatus.siap);
     });
 
+    test('update mingguan nggak menahan ensureReady', () async {
+      // yt-dlp sudah ada versinya, tapi sudah lewat seminggu.
+      final s = YtDlpService.baru()..perluUpdateBerkala = true;
+      await s.ensureReady();
+
+      // Sudah siap dipakai walau update mingguannya baru jalan di belakang.
+      expect(s.status, EngineStatus.siap);
+      expect(s.version, '2026.10.26');
+    });
+
     test('dipanggil dua kali cuma kerja sekali', () async {
       final s = YtDlpService.baru();
       await s.ensureReady();

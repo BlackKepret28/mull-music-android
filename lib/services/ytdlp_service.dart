@@ -66,27 +66,46 @@ class YtDlpService extends ChangeNotifier {
       await YtDlp.init();
 
       _version = await YtDlp.version();
+
       // Null berarti masih yt-dlp bawaan paket, yang umurnya setahun dan
-      // biasanya sudah ditolak YouTube. Wajib di-update sekali.
-      // Selain itu, YouTube sering berubah, jadi diperbarui lagi tiap minggu.
-      if (_version == null || perluUpdateBerkala) {
+      // biasanya sudah ditolak YouTube. Yang ini WAJIB nunggu.
+      if (_version == null) {
         _set(EngineStatus.nyiapin, langkah: 'Memperbarui yt-dlp...');
-        try {
-          final r = await YtDlp.update();
-          _version = r['version'] as String?;
-          onDiperbarui?.call();
-        } catch (e) {
-          // Update mingguan gagal (mis. internet mati) bukan alasan buat
-          // bikin app nggak bisa dipakai, asal yt-dlp lamanya masih ada.
-          if (_version == null) rethrow;
-        }
+        final r = await YtDlp.update();
+        _version = r['version'] as String?;
+        onDiperbarui?.call();
+        _set(EngineStatus.siap);
+        return;
       }
 
+      // Sudah punya yt-dlp yang kepakai: langsung dinyatakan siap, dan
+      // update mingguannya dikerjakan di belakang layar. Dulu ini ikut
+      // ditunggu, jadi pencarian pertama tiap minggu kena waktu unduh
+      // yt-dlp yang nggak ada hubungannya sama pencarian itu.
       _set(EngineStatus.siap);
+      if (perluUpdateBerkala) _updateDiamDiam();
     } catch (e) {
       _siapan = null; // biar bisa dicoba ulang
       _set(EngineStatus.gagal, error: pesanRamah(e));
       rethrow;
+    }
+  }
+
+  /// Perbarui yt-dlp tanpa menahan siapa pun. Gagal (mis. internet mati)
+  /// dibiarkan: yt-dlp yang lama masih bisa dipakai sampai minggu depan.
+  Future<void> _updateDiamDiam() async {
+    try {
+      final r = await YtDlp.update();
+      final baru = r['version'] as String?;
+      if (baru != null && baru != _version) {
+        _version = baru;
+        // Hasil lama bisa jadi dari yt-dlp yang sudah usang.
+        _cacheStream.clear();
+        notifyListeners();
+      }
+      onDiperbarui?.call();
+    } catch (_) {
+      // Coba lagi lain kali.
     }
   }
 
