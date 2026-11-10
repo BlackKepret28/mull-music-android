@@ -11,7 +11,7 @@ Versi Android dari Mull Music App (versi Windows: repo privat `BlackKepret28/mul
 
 ## Keputusan yang sudah diambil
 - Stack: Flutter (UI) + youtubedl-android (yt-dlp + Python + QuickJS + ffmpeg) lewat platform channel Kotlin. Artefak tim Seal: `io.github.junkfood02.youtubedl-android:library` dan `:ffmpeg`, versi **0.18.1** (terbaru di Maven Central per 8 Nov 2026, rilis 16 Nov 2025). Cek ulang Maven Central sebelum naik versi, jangan tebak.
-- Lisensi: GPL-3.0 (ikut youtubedl-android), repo publik terpisah `mull-music-android` (belum dibuat). Jangan salin kode project GPL lain tanpa cantumkan sumber.
+- Lisensi: GPL-3.0 (ikut youtubedl-android), repo publik `BlackKepret28/mull-music-android` (dibuat Mulya 9 Nov, sudah di-push). Jangan salin kode project GPL lain tanpa cantumkan sumber.
 - Distribusi: APK lewat GitHub Releases (Play Store menolak app pengunduh YouTube).
 - **Versi Android ini buat PRIBADI Mulya** (diputuskan 9 Nov). Jangan dipajang di situs: nggak ada tombol unduh Android, nggak ada halaman Android, nggak disebut di `mull-git/web/`. Dicek 9 Nov: situsnya memang belum nyebut Android sama sekali, jadi nggak ada yang perlu dicopot, cukup jangan ditambah. Catatan GPL: selama APK-nya nggak dibagikan ke orang lain, nggak ada kewajiban menyediakan sumber; begitu dibagikan, sumbernya harus ikut tersedia.
 - Perangkat uji: Infinix Note 30 (X6833B, Android 14, arm64-v8a). Build arm64-v8a saja dulu.
@@ -67,7 +67,7 @@ Versi Android dari Mull Music App (versi Windows: repo privat `BlackKepret28/mul
 3. Rilis: GitHub Actions (tag `v*` -> `flutter build apk --release --split-per-abi` -> APK + `.sha256` ke Releases); keystore dibuat Mulya, disimpan sebagai secret base64 (jangan pernah commit atau minta ditempel ke chat); cek update di app (GitHub Releases -> unduh APK -> buka penginstal); README (cara pasang, GPL-3.0, daftar komponen pihak ketiga: yt-dlp Unlicense, youtubedl-android GPL-3.0, ffmpeg sesuai build-nya, QuickJS MIT).
 
 ## Aturan kerja
-- Satu branch per batch, commit per fitur. Jangan merge ke main; Mulya yang merge.
+- Satu branch per batch, commit per fitur. **9 Nov: Mulya ngasih izin Claude yang merge sendiri** ("utk merge lo boleh"), beda dengan repo Windows yang tetap Mulya yang merge.
 - Jangan commit `build/`, `.dart_tool/`, `*.apk`, `*.jks`, `key.properties`, `local.properties`.
 - Tiap selesai: `flutter analyze`, `flutter test`, build APK debug, uji di Infinix, screenshot gelap + terang.
 - Hanya dukung unduh dan putar konten yang memang boleh disimpan pengguna.
@@ -122,6 +122,11 @@ Versi Android dari Mull Music App (versi Windows: repo privat `BlackKepret28/mul
   - Jebakan yang ketemu: `childAspectRatio` di GridView bikin tinggi petak ikut lebar layar sampai isinya meluber; pakai `mainAxisExtent` kalau tingginya memang harus tetap.
   - APK release arm64 sekarang 63,4 MB. `flutter analyze` bersih, `flutter test` 62 lulus.
   - BELUM DITES DI HP: seluruh rombakan UI ini. HP lepas dari USB lagi sebelum sempat dipasang.
+
+- **9 Nov malam: didorong ke GitHub.** Remote `origin` = `https://github.com/BlackKepret28/mull-music-android.git` (publik). Commit awal GitHub (README otomatis) digabung pakai `--allow-unrelated-histories`, README-nya diambil punya kita. `main`, `batch-2-kerangka`, dan `spike-ytdlp` semuanya sudah di-push.
+  - Beranda baru DITES DI HP dan jalan: salam "Selamat malam", petak akses cepat dua kolom, kartu Putar dari tautan, sambutan, navbar ikon rounded dengan pil aksen.
+  - Bug ketemu dan BERES (belum dites ulang di HP): celah kosong besar di Beranda. **GridView/ListView bersarang yang `padding`-nya null otomatis memakai `MediaQuery.padding`**, jadi ikut kena inset navigasi bawah HP. Semua grid bersarang sekarang dipaksa `padding: EdgeInsets.zero`. Ingat ini tiap bikin scroll view di dalam scroll view.
+  - HP Mulya sering lepas sendiri dari USB waktu sesi panjang. Kalau `adb devices` kosong, cek kabelnya; `adb kill-server && adb start-server` nggak nolong kalau fisik.
 
 ## Yang harus dites duluan waktu HP nyambung lagi
 Urut dari yang paling mungkin bermasalah:
