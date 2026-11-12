@@ -2,66 +2,85 @@ import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../settings.dart';
+import '../theme.dart';
 
-/// Panel kaca cair. Dipakai buat bar bawah (navigasi + pemutar mini).
+/// Panel kaca cair (MsaGlass). KHUSUS buat kontrol yang melayang di atas
+/// konten: navigasi bawah, bar pemutar mini, header halaman, tombol bulat.
+/// Jangan dipakai buat item daftar; itu tugas [KartuMull] yang solid.
 ///
-/// Kalau Pengaturan > Efek kaca dimatikan, atau sistem minta "kurangi
-/// transparansi", panel ini balik jadi permukaan biasa. Jadi di HP lemah
-/// atau buat yang nggak nyaman, tampilannya tetap waras.
-///
-/// Supaya efeknya kelihatan, isi halaman harus lewat DI BAWAH panel ini
-/// (`Scaffold(extendBody: true)`), bukan berhenti di atasnya.
+/// Setelan kacanya ikut engine MSA (`glass_engine_liquid.dart`). Kalau
+/// Pengaturan > Efek kaca dimatikan, atau sistem minta "kurangi animasi" /
+/// kontras tinggi, panel ini jadi kartu pekat dengan garis tepi dan sudut
+/// yang sama, cuma tanpa blur.
 class GlassSurface extends StatelessWidget {
   const GlassSurface({
     super.key,
     required this.child,
-    this.radius = 28,
+    this.radius = MullUkuran.panel,
     this.quality = GlassQuality.standard,
+    this.padding,
+    this.width,
+    this.height,
   });
 
   final Widget child;
   final double radius;
   final GlassQuality quality;
+  final EdgeInsetsGeometry? padding;
+  final double? width;
+  final double? height;
+
+  static bool nyala(BuildContext context) =>
+      SettingsScope.of(context).glass &&
+      !MediaQuery.disableAnimationsOf(context) &&
+      !MediaQuery.highContrastOf(context);
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final gelap = Theme.of(context).brightness == Brightness.dark;
+    final c = context.mull;
+    final gelap = context.gelap;
+    final isi = padding == null ? child : Padding(padding: padding!, child: child);
 
-    final nyala = SettingsScope.of(context).glass &&
-        !MediaQuery.disableAnimationsOf(context) &&
-        !MediaQuery.highContrastOf(context);
-
-    if (!nyala) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: ColoredBox(color: cs.surfaceContainer, child: child),
+    if (!nyala(context)) {
+      return Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: c.surfaceSolid,
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: c.border),
+          boxShadow: [BoxShadow(color: c.shadow, blurRadius: 26)],
+        ),
+        child: ClipRRect(borderRadius: BorderRadius.circular(radius), child: isi),
       );
     }
 
-    return AdaptiveGlass(
-      shape: LiquidRoundedSuperellipse(borderRadius: radius),
-      quality: quality,
-      // Sengaja kalem: pembiasan tipis, tanpa pelangi berlebihan.
-      // Angka besar bikin teks di belakangnya susah dibaca.
-      settings: LiquidGlassSettings(
-        blur: gelap ? 18 : 16,
-        thickness: 14,
-        // Lapisan dasar semi-pekat. Tanpa ini label navigasi hilang waktu
-        // ada sampul terang lewat di belakang panel (kejadian di Infinix).
-        backerColor: gelap ? const Color(0xCC14161A) : const Color(0xCCF7F8FA),
-        glassColor: gelap
-            ? const Color(0x1AFFFFFF)
-            : const Color(0x14FFFFFF),
-        frost: gelap ? 0.42 : 0.48,
-        chromaticAberration: 0.004,
-        refractiveIndex: 1.15,
-        saturation: 1.1,
-        lightIntensity: gelap ? 0.35 : 0.5,
-        glowIntensity: 0.3,
-        specularSharpness: GlassSpecularSharpness.soft,
+    return RepaintBoundary(
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: AdaptiveGlass(
+          shape: LiquidRoundedSuperellipse(borderRadius: radius),
+          quality: quality,
+          settings: LiquidGlassSettings(
+            // Angka dari engine kaca MSA.
+            glassColor: c.glassTint,
+            thickness: 22,
+            blur: gelap ? 14 : 12,
+            lightIntensity: gelap ? 0.45 : 0.7,
+            saturation: 1.6,
+            refractiveIndex: 1.2,
+            chromaticAberration: 0.008,
+            // Tambahan Mull: lapisan dasar semi-pekat. Di MSA kaca melayang di
+            // atas latar pastel polos, di Mull sering di atas sampul terang.
+            // Tanpa ini label navigasi hilang (kejadian di Infinix, 9 Nov).
+            backerColor: gelap ? const Color(0xB30B0D12) : const Color(0xB3F6F7FB),
+            frost: gelap ? 0.3 : 0.35,
+            specularSharpness: GlassSpecularSharpness.soft,
+          ),
+          child: isi,
+        ),
       ),
-      child: child,
     );
   }
 }

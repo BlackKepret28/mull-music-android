@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/track.dart';
 import '../services/playlist_service.dart';
+import '../theme.dart';
 import 'artwork.dart';
+import 'mull_ui.dart';
 
 /// Kartu video 16:9 dengan badge durasi di pojok.
 ///
@@ -21,14 +23,14 @@ class VideoCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(MullUkuran.sampul),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Stack(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(MullUkuran.sampul),
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
                   child: track.thumbUrl == null || track.thumbUrl!.isEmpty
@@ -102,8 +104,8 @@ class VideoCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
                     height: 1.25,
                   ),
                 ),
@@ -147,18 +149,18 @@ class PlaylistCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(MullUkuran.sampul),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AspectRatio(
             aspectRatio: 1,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(MullUkuran.sampul),
               child: switch (sampul.length) {
                 0 => ColoredBox(
-                    color: cs.primary.withValues(alpha: 0.12),
-                    child: Icon(Icons.queue_music_rounded, color: cs.primary, size: 30),
+                    color: context.mull.violetSoft,
+                    child: Icon(Icons.queue_music_rounded, color: context.mull.violet, size: 30),
                   ),
                 1 || 2 || 3 => Artwork(url: sampul.first, size: double.infinity, radius: 0),
                 _ => GridView.count(
@@ -177,7 +179,7 @@ class PlaylistCard extends StatelessWidget {
             playlist.nama,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
           Text(
@@ -202,18 +204,20 @@ class PlaylistCardBaru extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(MullUkuran.sampul),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AspectRatio(
             aspectRatio: 1,
+            // Kartu kosong ala MSA: isi kartu + garis tipis + ikon di kotak aksen.
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: cs.outlineVariant, width: 1.5),
+                color: context.mull.surface,
+                borderRadius: BorderRadius.circular(MullUkuran.sampul),
+                border: Border.all(color: context.mull.border),
               ),
-              child: Icon(Icons.add_rounded, color: cs.primary, size: 30),
+              child: const Center(child: KotakIkon(ikon: Icons.add_rounded, ukuran: 48)),
             ),
           ),
           const SizedBox(height: 8),
@@ -221,7 +225,7 @@ class PlaylistCardBaru extends StatelessWidget {
             'Playlist baru',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
           Text(

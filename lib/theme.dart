@@ -1,159 +1,452 @@
 import 'package:flutter/material.dart';
 
-/// Palet Mull. Aksen violet, sama dengan versi Windows
-/// (`--accent` di `ui/shell.css`: #6344FB terang, #8B7CFF gelap).
-abstract final class MullColors {
-  static const seed = Color(0xFF6344FB);
+/// Token warna Mull. Diakses lewat `context.mull`.
+///
+/// Nilainya disalin PERSIS dari app MSA milik Mulya
+/// (`my_secret_app/lib/core/theme/app_colors.dart`): latar putih keabuan
+/// dengan cahaya pastel, kartu solid yang kalem, kaca cuma buat kontrol yang
+/// melayang. Bedanya cuma satu: aksennya violet Mull (sama dengan `--accent`
+/// versi Windows, #6344FB terang / #8B7CFF gelap), bukan biru MSA.
+@immutable
+class MullColors extends ThemeExtension<MullColors> {
+  const MullColors({
+    required this.bg,
+    required this.surface,
+    required this.surfaceSolid,
+    required this.border,
+    required this.divider,
+    required this.text,
+    required this.textMuted,
+    required this.textSubtle,
+    required this.icon,
+    required this.accent,
+    required this.accentStrong,
+    required this.accentSoft,
+    required this.onAccent,
+    required this.warning,
+    required this.warningSoft,
+    required this.success,
+    required this.successSoft,
+    required this.danger,
+    required this.dangerSoft,
+    required this.violet,
+    required this.violetSoft,
+    required this.checkBorder,
+    required this.track,
+    required this.chipBg,
+    required this.glassTint,
+    required this.glassBorder,
+    required this.shadow,
+    required this.cardShadow,
+    required this.snackBg,
+    required this.blobBlue,
+    required this.blobLavender,
+    required this.blobPeach,
+    required this.blobMint,
+    required this.blobOpacity,
+  });
 
-  static const accentLight = Color(0xFF6344FB);
-  static const accentDark = Color(0xFF8B7CFF);
+  final Color bg;
 
-  /// Latar paling bawah.
-  static const bgLight = Color(0xFFFFFFFF);
-  static const bgDark = Color(0xFF0B0C0E);
+  /// Isi kartu (sedikit tembus, biar cahaya pastel samar kelihatan).
+  final Color surface;
+  final Color surfaceSolid;
+  final Color border;
+  final Color divider;
+  final Color text;
+  final Color textMuted;
+  final Color textSubtle;
+  final Color icon;
+  final Color accent;
 
-  /// Kartu, bar, panel.
-  static const cardLight = Color(0xFFF4F5F7);
-  static const cardDark = Color(0xFF1F2125);
+  /// Aksen buat teks/ikon di atas latar terang-lembut (tautan "Lihat semua",
+  /// label tab aktif). Di tema gelap lebih muda supaya kebaca.
+  final Color accentStrong;
+  final Color accentSoft;
+  final Color onAccent;
+  final Color warning;
+  final Color warningSoft;
+  final Color success;
+  final Color successSoft;
+  final Color danger;
+  final Color dangerSoft;
+  final Color violet;
+  final Color violetSoft;
+  final Color checkBorder;
+  final Color track;
+  final Color chipBg;
+  final Color glassTint;
+  final Color glassBorder;
+  final Color shadow;
+  final Color cardShadow;
+  final Color snackBg;
+  final Color blobBlue;
+  final Color blobLavender;
+  final Color blobPeach;
+  final Color blobMint;
+  final double blobOpacity;
 
-  static const inkLight = Color(0xFF1F2125);
-  static const inkDark = Color(0xFFF4F5F7);
+  static const light = MullColors(
+    bg: Color(0xFFF6F7FB),
+    surface: Color(0xDBFFFFFF),
+    surfaceSolid: Color(0xFFFFFFFF),
+    border: Color(0xE6E2E8F4),
+    divider: Color(0xFFEEF1F6),
+    text: Color(0xFF0F172A),
+    textMuted: Color(0xFF5B6475),
+    textSubtle: Color(0xFF64748B),
+    icon: Color(0xFF334155),
+    accent: Color(0xFF6344FB),
+    accentStrong: Color(0xFF4F32DB),
+    accentSoft: Color(0xFFE9E5FF),
+    onAccent: Color(0xFFFFFFFF),
+    warning: Color(0xFFB45309),
+    warningSoft: Color(0xFFFEF3C7),
+    success: Color(0xFF047857),
+    successSoft: Color(0xFFD1FAE5),
+    danger: Color(0xFFDC2626),
+    dangerSoft: Color(0xFFFEE2E2),
+    violet: Color(0xFF6D28D9),
+    violetSoft: Color(0xFFEDE9FE),
+    checkBorder: Color(0xFFC5CCDA),
+    track: Color(0xFFE6EAF2),
+    chipBg: Color(0xFFEEF1F6),
+    glassTint: Color(0x6BFFFFFF),
+    glassBorder: Color(0xD9FFFFFF),
+    shadow: Color(0x1F1E295A),
+    cardShadow: Color(0x0F1E295A),
+    snackBg: Color(0xFF0F172A),
+    blobBlue: Color(0xFFA9C7FF),
+    blobLavender: Color(0xFFDCCBFF),
+    blobPeach: Color(0xFFFFDCC8),
+    blobMint: Color(0xFFBFEFE4),
+    blobOpacity: 0.9,
+  );
 
-  static const dimLight = Color(0xFF6E747E);
-  static const dimDark = Color(0xFF9AA0AA);
+  static const dark = MullColors(
+    bg: Color(0xFF0B0D12),
+    surface: Color(0xD6171B25),
+    surfaceSolid: Color(0xFF171B25),
+    border: Color(0x14FFFFFF),
+    divider: Color(0x14FFFFFF),
+    text: Color(0xFFEEF1F7),
+    textMuted: Color(0xFFA3ACBD),
+    textSubtle: Color(0xFF8D96A8),
+    icon: Color(0xFFC9D0DC),
+    accent: Color(0xFF8B7CFF),
+    accentStrong: Color(0xFFC4BBFF),
+    accentSoft: Color(0x338B7CFF),
+    // Teks gelap di atas violet muda: putih cuma 3,2:1 di sini, kurang kebaca.
+    onAccent: Color(0xFF0F0B24),
+    warning: Color(0xFFFBBF24),
+    warningSoft: Color(0x29F59E0B),
+    success: Color(0xFF34D399),
+    successSoft: Color(0x2934D399),
+    danger: Color(0xFFF87171),
+    dangerSoft: Color(0x29F87171),
+    violet: Color(0xFFC4B5FD),
+    violetSoft: Color(0x29A78BFA),
+    checkBorder: Color(0xFF4B5466),
+    track: Color(0x1AFFFFFF),
+    chipBg: Color(0x14FFFFFF),
+    glassTint: Color(0x1FFFFFFF),
+    glassBorder: Color(0x26FFFFFF),
+    shadow: Color(0x73000000),
+    cardShadow: Color(0x40000000),
+    snackBg: Color(0xFF262B38),
+    blobBlue: Color(0xFF2B4C9B),
+    blobLavender: Color(0xFF4A3A8C),
+    blobPeach: Color(0xFF5A3270),
+    blobMint: Color(0xFF1F5E55),
+    blobOpacity: 0.6,
+  );
+
+  /// Pasangan (latar lembut, warna ikon) buat kotak ikon pastel ala MSA.
+  (Color, Color) nada(NadaIkon n) => switch (n) {
+        NadaIkon.aksen => (accentSoft, accentStrong),
+        NadaIkon.mint => (successSoft, success),
+        NadaIkon.lavender => (violetSoft, violet),
+        NadaIkon.peach => (warningSoft, warning),
+      };
+
+  @override
+  MullColors copyWith() => this;
+
+  @override
+  MullColors lerp(ThemeExtension<MullColors>? other, double t) {
+    if (other is! MullColors) return this;
+    return t < 0.5 ? this : other;
+  }
+}
+
+/// Warna kotak ikon. MSA: mint buat dompet, lavender buat film/tautan, dst.
+enum NadaIkon { aksen, mint, lavender, peach }
+
+extension MullThemeContext on BuildContext {
+  MullColors get mull => Theme.of(this).extension<MullColors>() ?? MullColors.light;
+  bool get gelap => Theme.of(this).brightness == Brightness.dark;
+}
+
+/// Ukuran yang dipakai berulang. Angkanya dari komponen MSA.
+abstract final class MullUkuran {
+  /// Kartu konten (MsaCard).
+  static const kartu = 22.0;
+
+  /// Panel kaca besar (header halaman, MsaGlass bawaan).
+  static const panel = 28.0;
+
+  /// Sampul di dalam kartu.
+  static const sampul = 16.0;
+
+  /// Jarak tepi layar.
+  static const tepi = 16.0;
 }
 
 abstract final class MullTheme {
-  static ThemeData light() => _build(Brightness.light);
-  static ThemeData dark() => _build(Brightness.dark);
+  static const font = 'PlusJakartaSans';
 
-  static ThemeData _build(Brightness brightness) {
-    final dark = brightness == Brightness.dark;
-    final accent = dark ? MullColors.accentDark : MullColors.accentLight;
-    final bg = dark ? MullColors.bgDark : MullColors.bgLight;
-    final card = dark ? MullColors.cardDark : MullColors.cardLight;
-    final ink = dark ? MullColors.inkDark : MullColors.inkLight;
-    final dim = dark ? MullColors.dimDark : MullColors.dimLight;
+  static ThemeData light() => _build(MullColors.light, Brightness.light);
+  static ThemeData dark() => _build(MullColors.dark, Brightness.dark);
 
-    final scheme = ColorScheme.fromSeed(
-      seedColor: MullColors.seed,
-      brightness: brightness,
-    ).copyWith(
-      primary: accent,
-      onPrimary: dark ? const Color(0xFF0F0B24) : Colors.white,
-      surface: bg,
-      onSurface: ink,
-      surfaceContainerLowest: bg,
-      surfaceContainer: card,
-      surfaceContainerHighest: card,
-      onSurfaceVariant: dim,
-      outlineVariant: dark ? Colors.white12 : Colors.black12,
+  static ThemeData _build(MullColors c, Brightness brightness) {
+    final scheme = ColorScheme.fromSeed(seedColor: c.accent, brightness: brightness).copyWith(
+      primary: c.accent,
+      onPrimary: c.onAccent,
+      surface: c.bg,
+      onSurface: c.text,
+      surfaceContainerLowest: c.bg,
+      surfaceContainerLow: c.surfaceSolid,
+      surfaceContainer: c.chipBg,
+      surfaceContainerHigh: c.surfaceSolid,
+      surfaceContainerHighest: c.surfaceSolid,
+      onSurfaceVariant: c.textMuted,
+      outline: c.checkBorder,
+      outlineVariant: c.border,
+      error: c.danger,
     );
 
-    return ThemeData(
+    final base = ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
-      scaffoldBackgroundColor: bg,
-      // Tanpa splash ungu di mana-mana; biar kalem.
-      splashFactory: InkSparkle.splashFactory,
+      fontFamily: font,
+      scaffoldBackgroundColor: c.bg,
+      canvasColor: c.bg,
+      dividerColor: c.divider,
+      splashFactory: InkRipple.splashFactory,
+      extensions: <ThemeExtension<dynamic>>[c],
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: c.accent,
+        selectionColor: c.accent.withValues(alpha: 0.25),
+        selectionHandleColor: c.accent,
+      ),
       appBarTheme: AppBarTheme(
-        backgroundColor: bg,
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        foregroundColor: c.text,
         titleTextStyle: TextStyle(
-          color: ink,
-          fontSize: 22,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.2,
-        ),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: dark ? MullColors.bgDark : MullColors.bgLight,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        height: 64,
-        indicatorColor: Colors.transparent,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        iconTheme: WidgetStateProperty.resolveWith(
-          (s) => IconThemeData(
-            size: 24,
-            color: s.contains(WidgetState.selected) ? accent : dim,
-          ),
-        ),
-        labelTextStyle: WidgetStateProperty.resolveWith(
-          (s) => TextStyle(
-            fontSize: 11.5,
-            fontWeight: s.contains(WidgetState.selected) ? FontWeight.w600 : FontWeight.w500,
-            color: s.contains(WidgetState.selected) ? accent : dim,
-          ),
+          fontFamily: font,
+          color: c.text,
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.3,
         ),
       ),
       cardTheme: CardThemeData(
-        color: card,
+        color: c.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(MullUkuran.kartu),
+          side: BorderSide(color: c.border),
+        ),
       ),
       listTileTheme: ListTileThemeData(
-        iconColor: dim,
-        textColor: ink,
-        titleTextStyle: TextStyle(color: ink, fontSize: 15, fontWeight: FontWeight.w500),
-        subtitleTextStyle: TextStyle(color: dim, fontSize: 13),
+        iconColor: c.icon,
+        textColor: c.text,
+        titleTextStyle: TextStyle(fontFamily: font, color: c.text, fontSize: 15, fontWeight: FontWeight.w600),
+        subtitleTextStyle: TextStyle(fontFamily: font, color: c.textMuted, fontSize: 13, height: 1.35),
       ),
-      dividerTheme: DividerThemeData(
-        color: dark ? Colors.white12 : Colors.black12,
-        thickness: 1,
-        space: 1,
-      ),
-      iconTheme: IconThemeData(color: ink),
+      dividerTheme: DividerThemeData(color: c.divider, thickness: 1, space: 1),
+      iconTheme: IconThemeData(color: c.icon),
+      // Tombol pil (MsaPillButton): utama = aksen solid, sekunder = abu chip.
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          textStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+          backgroundColor: c.accent,
+          foregroundColor: c.onAccent,
+          minimumSize: const Size(0, 48),
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          textStyle: const TextStyle(fontFamily: font, fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: c.chipBg,
+          foregroundColor: c.text,
+          minimumSize: const Size(0, 48),
+          shape: const StadiumBorder(),
+          side: BorderSide.none,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          textStyle: const TextStyle(fontFamily: font, fontSize: 15, fontWeight: FontWeight.w700),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: c.accentStrong,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          textStyle: const TextStyle(fontFamily: font, fontSize: 13.5, fontWeight: FontWeight.w700),
+        ),
+      ),
+      // Kolom isian MsaInput: kotak putih bersudut 14, garis tipis.
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: card,
-        hintStyle: TextStyle(color: dim, fontSize: 15),
+        fillColor: c.surfaceSolid,
+        hintStyle: TextStyle(fontFamily: font, color: c.textSubtle, fontSize: 15, fontWeight: FontWeight.w500),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(999),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: c.checkBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(999),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: brightness == Brightness.dark ? const Color(0xFF353B4A) : const Color(0xFFDCE1EA)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(999),
-          borderSide: BorderSide(color: accent, width: 1.5),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: c.accent, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       ),
-      sliderTheme: const SliderThemeData(
-        trackHeight: 3,
-        overlayShape: RoundSliderOverlayShape(overlayRadius: 14),
-        thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
+      sliderTheme: SliderThemeData(
+        trackHeight: 4,
+        activeTrackColor: c.accent,
+        inactiveTrackColor: c.track,
+        thumbColor: c.accent,
+        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
       ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: c.accent, linearTrackColor: c.track),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? c.onAccent : c.surfaceSolid,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? c.accent : c.track,
+        ),
+        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? c.accent : c.checkBorder,
+        ),
+      ),
+      // Snackbar MSA: pil gelap melayang, teks putih tebal.
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: card,
-        contentTextStyle: TextStyle(color: ink, fontSize: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        elevation: 0,
+        backgroundColor: c.snackBg,
+        actionTextColor: const Color(0xFFC4BBFF),
+        contentTextStyle: const TextStyle(
+          fontFamily: font,
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
-      textTheme: Typography.material2021(platform: TargetPlatform.android)
-          .black
-          .apply(bodyColor: ink, displayColor: ink)
+      // Lembar bawah ala msa_sheets: kartu pekat bersudut 30, melayang.
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: c.surfaceSolid,
+        modalBackgroundColor: c.surfaceSolid,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        modalBarrierColor: Colors.black.withValues(alpha: 0.3),
+        dragHandleColor: c.checkBorder,
+        dragHandleSize: const Size(40, 5),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: c.surfaceSolid,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+          side: BorderSide(color: c.border),
+        ),
+        titleTextStyle: TextStyle(
+          fontFamily: font,
+          color: c.text,
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.3,
+        ),
+        contentTextStyle: TextStyle(fontFamily: font, color: c.textMuted, fontSize: 14, height: 1.45),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: c.surfaceSolid,
+        surfaceTintColor: Colors.transparent,
+        elevation: 6,
+        shadowColor: c.shadow,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: c.border),
+        ),
+        textStyle: TextStyle(fontFamily: font, color: c.text, fontSize: 14.5, fontWeight: FontWeight.w600),
+      ),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(color: c.snackBg, borderRadius: BorderRadius.circular(10)),
+        textStyle: const TextStyle(fontFamily: font, color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600),
+      ),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {TargetPlatform.android: _TransisiMsa()},
+      ),
+    );
+
+    return base.copyWith(
+      textTheme: base.textTheme
+          .apply(fontFamily: font, bodyColor: c.text, displayColor: c.text)
           .copyWith(
-            titleMedium: TextStyle(color: ink, fontSize: 16, fontWeight: FontWeight.w600),
-            bodyMedium: TextStyle(color: ink, fontSize: 14.5),
-            bodySmall: TextStyle(color: dim, fontSize: 13),
+            titleMedium: TextStyle(fontFamily: font, color: c.text, fontSize: 16, fontWeight: FontWeight.w700),
+            bodyMedium: TextStyle(fontFamily: font, color: c.text, fontSize: 14.5),
+            bodySmall: TextStyle(fontFamily: font, color: c.textMuted, fontSize: 13, height: 1.4),
           ),
+    );
+  }
+}
+
+/// Transisi halaman MSA (`msa_route.dart`): pudar + geser sedikit dari bawah.
+class _TransisiMsa extends PageTransitionsBuilder {
+  const _TransisiMsa();
+
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 280);
+
+  @override
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 220);
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero).animate(curved),
+        child: child,
+      ),
     );
   }
 }

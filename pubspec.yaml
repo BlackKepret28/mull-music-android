@@ -42,7 +42,6 @@ dependencies:
   cached_network_image: ^4.0.6
   liquid_glass_widgets: ^1.17.0
   video_player: ^2.14.1
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -64,6 +63,20 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Font ikut app MSA milik Mulya. Lisensi OFL: assets/fonts/OFL.txt
+  fonts:
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-Regular.ttf
+        - asset: assets/fonts/PlusJakartaSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/PlusJakartaSans-ExtraBold.ttf
+          weight: 800
 
   # To add assets to your application, add an assets section, like this:
   # assets:
