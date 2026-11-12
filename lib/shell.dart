@@ -17,14 +17,17 @@ import 'ytdlp.dart';
 import 'widgets/bottom_nav.dart';
 import 'widgets/glass_surface.dart';
 import 'widgets/mini_player.dart';
+import 'widgets/mull_ui.dart';
 
-/// Tinggi bar pemutar mini (isi + garis progres).
-const _tinggiPemutar = 62.0;
-const _tinggiNav = 60.0;
+/// Tinggi kapsul pemutar mini dan pil navigasi (MsaTabBar: 64).
+const _tinggiPemutar = 64.0;
+const _tinggiNav = 64.0;
+const _jarakPanel = 8.0;
 
-/// Kerangka utama: panel kaca mengambang di bawah berisi bar pemutar mini
-/// dan navigasi empat tab. Isi halaman sengaja lewat di bawah panel itu
-/// (`extendBody: true`) supaya kacanya ada yang dibiaskan.
+/// Kerangka utama ala MSA: latar pastel di paling belakang, lalu dua kapsul
+/// kaca melayang di bawah (pemutar mini, navigasi empat tab). Isi halaman
+/// sengaja lewat di bawah kapsul itu (`extendBody: true`) supaya kacanya ada
+/// yang dibiaskan.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -118,61 +121,81 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final sisaBawah = MediaQuery.viewPaddingOf(context).bottom;
-    final marginBawah = sisaBawah + 10;
+    final marginBawah = sisaBawah + 12;
+    final lebarNav = (MediaQuery.sizeOf(context).width - 24).clamp(0.0, 380.0);
 
     return StreamBuilder<MediaItem?>(
       stream: _player.mediaItem,
       builder: (context, snapItem) {
         final item = snapItem.data;
-        final tinggiPanel = (item == null ? 0 : _tinggiPemutar) + _tinggiNav;
+        final tinggiPanel = (item == null ? 0 : _tinggiPemutar + _jarakPanel) + _tinggiNav;
 
         return RuangBawah(
           tinggi: tinggiPanel + marginBawah + 8,
           child: Scaffold(
             extendBody: true,
-            body: IndexedStack(
-              index: _tab,
+            body: Stack(
               children: [
-                HomeScreen(
-                  onPlay: _putar,
-                  onGoSearch: _goSearch,
-                  onGoLibrary: () => setState(() => _tab = 2),
-                  onGoDownloads: () => setState(() => _tab = 3),
-                  onTempelTautan: _tempelTautan,
-                ),
-                SearchScreen(
-                  onPlay: _putar,
-                  onDownload: _unduh,
-                  permintaanLuar: _permintaanCari,
-                ),
-                LibraryScreen(
-                  onGoSearch: _goSearch,
-                  onPlay: _putar,
-                  onPlayAcak: _putarAcak,
-                ),
-                DownloadsScreen(onGoSearch: _goSearch),
+                // Latar digambar SEKALI di sini, dipakai bareng semua tab.
+                Positioned.fill(child: LatarSampul(sampul: item?.artUri?.toString())),
+                Positioned.fill(child: _isiTab()),
               ],
             ),
             bottomNavigationBar: Padding(
               padding: EdgeInsets.fromLTRB(12, 0, 12, marginBawah),
-              child: GlassSurface(
-                radius: 26,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (item != null)
-                      _BarPemutar(player: _player, item: item, onTap: _bukaSedangDiputar),
-                    BottomNav(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (item != null) ...[
+                    GlassSurface(
+                      radius: _tinggiPemutar / 2,
+                      child: _BarPemutar(player: _player, item: item, onTap: _bukaSedangDiputar),
+                    ),
+                    const SizedBox(height: _jarakPanel),
+                  ],
+                  GlassSurface(
+                    radius: _tinggiNav / 2,
+                    width: lebarNav,
+                    height: _tinggiNav,
+                    child: BottomNav(
                       index: _tab,
                       onPilih: (i) => setState(() => _tab = i),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _isiTab() {
+    return IndexedStack(
+      index: _tab,
+      children: [
+        HomeScreen(
+          onPlay: _putar,
+          onGoSearch: _goSearch,
+          onGoLibrary: () => setState(() => _tab = 2),
+          onGoDownloads: () => setState(() => _tab = 3),
+          // Kolom "Cari atau tempel tautan" di Beranda: teks apa pun
+          // (kata kunci atau tautan) diteruskan ke layar Cari.
+          onTempelTautan: _tempelTautan,
+        ),
+        SearchScreen(
+          onPlay: _putar,
+          onDownload: _unduh,
+          permintaanLuar: _permintaanCari,
+        ),
+        LibraryScreen(
+          onGoSearch: _goSearch,
+          onPlay: _putar,
+          onPlayAcak: _putarAcak,
+        ),
+        DownloadsScreen(onGoSearch: _goSearch),
+      ],
     );
   }
 }
