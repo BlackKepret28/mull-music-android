@@ -39,15 +39,27 @@ class BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Tab aktif dapat ruang lebih (40%) supaya labelnya muat utuh; tiga
+    // sisanya cuma ikon, jadi cukup berbagi sisanya. Lebarnya dianimasikan.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Row(
-        children: [
-          for (var i = 0; i < navItems.length; i++)
-            Expanded(
-              child: _Tombol(item: navItems[i], aktif: i == index, onTap: () => onPilih(i)),
-            ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, k) {
+          final n = navItems.length;
+          final lebarAktif = k.maxWidth * 0.4;
+          final lebarLain = (k.maxWidth - lebarAktif) / (n - 1);
+          return Row(
+            children: [
+              for (var i = 0; i < n; i++)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
+                  width: i == index ? lebarAktif : lebarLain,
+                  child: _Tombol(item: navItems[i], aktif: i == index, onTap: () => onPilih(i)),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
