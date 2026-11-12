@@ -139,6 +139,14 @@ Versi Android dari Mull Music App (versi Windows: repo privat `BlackKepret28/mul
   - Jebakan: `Flexible` harus anak langsung `Row`, jadi `Flexible(child: AnimatedSize(...))`, bukan kebalikannya. `FutureBuilder` dengan future baru tiap build bikin latar kedip balik ke pastel tiap pindah tab; dipakai widget stateful yang cuma ngitung ulang kalau URL sampul ganti. Perintah bash dengan DUA heredoc sekaligus gagal parsing di sesi Claude; tulis skrip ke berkas di scratchpad.
   - `flutter analyze` bersih, `flutter test` 73 lulus (64 lama + 9 baru di `test/mull_ui_test.dart`). README: fitur tema + baris lisensi font OFL.
   - Ide lanjutan: chip filter (mis. Semua/Diunduh) di header Cari dan Pustaka pakai `ChipMull`; avatar inisial di Beranda kalau nanti ada akun; ganti FAB tambah playlist di tab Playlist.
+- **12 Nov siang: semua lagu di HP masuk Pustaka** (permintaan Mulya, branch `batch-3-gaya-msa`).
+  - Izin `READ_MEDIA_AUDIO` (Android 13+) / `READ_EXTERNAL_STORAGE` (<= 32). Diminta lewat tombol "Tampilkan lagu di HP" atau kartu ajakan di tab Lagu, bukan waktu app dibuka.
+  - Dengan izin: `listLibrary` ambil semua `IS_MUSIC` + Music/Mull (rekaman suara/nada dering nggak ikut). Video tetap cuma Movies/Mull. Chip Semua / Dari Mull di atas daftar lagu. Rak Beranda "Baru diunduh" cuma unduhan Mull (`laguMull`).
+  - Hapus dari HP cuma muncul buat berkas Mull (`milikMull`); lagu lain bukan urusan Mull buat dihapus.
+  - Sampul lokal: `thumbUrl` = uri `content://`, `GambarSampul` minta `loadThumbnail` lewat channel (`thumbnail`), cache LRU 300 di memori. `CoverColor` juga bisa baca sampul lokal.
+  - `flutter analyze` bersih, `flutter test` 76 lulus, APK release 63,5 MB terpasang di Infinix (`install -r` berhasil, data nggak hilang). DITES DI HP: Beranda gaya MSA dan empty state Pustaka tampil benar. BELUM DITES: dialog izin, daftar lagu HP sungguhan, sampul lokal, memutar lagu non-Mull (Mulya keburu pakai HP-nya).
+  - Acak/ulang di `player_service.dart` (urutan acak terpisah dari antrean, mode ulang satu/semua) masih BELUM di-commit: belum ada tombolnya di layar Sedang diputar.
+- **12 Nov: server/VPS** — Mulya: "utk vps, sementara pake render aja deh" (Render.com dulu, VPS nanti). Buat apa servernya belum tercatat di sini; tanyakan dan lengkapi.
 
 ## Yang harus dites duluan waktu HP nyambung lagi
 Urut dari yang paling mungkin bermasalah:

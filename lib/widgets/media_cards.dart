@@ -33,28 +33,14 @@ class VideoCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(MullUkuran.sampul),
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
-                  child: track.thumbUrl == null || track.thumbUrl!.isEmpty
-                      ? ColoredBox(
-                          color: cs.surfaceContainer,
-                          child: Icon(
-                            Icons.movie_rounded,
-                            color: cs.onSurfaceVariant,
-                            size: 26,
-                          ),
-                        )
-                      : Image.network(
-                          track.thumbUrl!,
-                          fit: BoxFit.cover,
-                          gaplessPlayback: true,
-                          errorBuilder: (_, _, _) => ColoredBox(
-                            color: cs.surfaceContainer,
-                            child: Icon(
-                              Icons.movie_rounded,
-                              color: cs.onSurfaceVariant,
-                              size: 26,
-                            ),
-                          ),
-                        ),
+                  // Sampul YouTube atau cuplikan berkas video di HP.
+                  child: GambarSampul(
+                    url: track.thumbUrl,
+                    cadangan: ColoredBox(
+                      color: cs.surfaceContainer,
+                      child: Icon(Icons.movie_rounded, color: cs.onSurfaceVariant, size: 26),
+                    ),
+                  ),
                 ),
               ),
               if (track.duration != null)

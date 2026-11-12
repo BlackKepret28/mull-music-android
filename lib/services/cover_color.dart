@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../widgets/artwork.dart';
+
 /// Ambil satu warna yang mewakili sampul lagu.
 ///
 /// Ini yang bikin layar Sedang diputar di Spotify dan YouTube Music kelihatan
@@ -28,12 +30,21 @@ abstract final class CoverColor {
 
   static Future<Color?> _hitung(String url) async {
     try {
-      final r = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
-      if (r.statusCode != 200) return _simpan(url, null);
+      final Uint8List bytes;
+      if (GambarSampul.lokal(url)) {
+        // Berkas di HP: sampul bawaannya diminta ke Android.
+        final b = await GambarSampul.bacaLokal(url);
+        if (b == null) return _simpan(url, null);
+        bytes = b;
+      } else {
+        final r = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+        if (r.statusCode != 200) return _simpan(url, null);
+        bytes = r.bodyBytes;
+      }
 
       // Decode langsung ke ukuran kecil: kita cuma butuh warnanya.
       final codec = await ui.instantiateImageCodec(
-        r.bodyBytes,
+        bytes,
         targetWidth: 24,
         targetHeight: 24,
       );

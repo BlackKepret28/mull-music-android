@@ -3,7 +3,11 @@ import 'package:flutter/foundation.dart';
 import '../models/track.dart';
 import '../ytdlp.dart';
 
-/// Isi Music/Mull dan Movies/Mull di HP, dibaca dari MediaStore.
+/// Lagu dan video di HP, dibaca dari MediaStore.
+///
+/// Tanpa izin baca audio: cuma Music/Mull dan Movies/Mull (unduhan Mull).
+/// Dengan izin: SEMUA lagu di HP ikut masuk Pustaka (permintaan Mulya,
+/// 12 Nov), video tetap cuma Movies/Mull.
 ///
 /// Sengaja nggak nyimpan daftar sendiri: MediaStore sudah jadi sumber
 /// kebenaran, jadi berkas yang dihapus lewat app lain ikut hilang di sini.
@@ -17,10 +21,24 @@ class LibraryService extends ChangeNotifier {
 
   List<Track> _lagu = const [];
   List<Track> _video = const [];
+  Set<String> _milikMull = const {};
+  bool _semua = false;
   bool _memuat = false;
   String? _galat;
 
+  /// Semua lagu (unduhan Mull + lagu lain di HP kalau izinnya ada).
   List<Track> get lagu => _lagu;
+
+  /// Cuma unduhan Mull (Music/Mull).
+  List<Track> get laguMull => _lagu.where(milikMull).toList();
+
+  /// Berkas ini hasil unduhan Mull? Cuma yang ini boleh dihapus dari app;
+  /// lagu lain di HP bukan urusan Mull buat dihapus.
+  bool milikMull(Track t) => t.localPath != null && _milikMull.contains(t.localPath);
+
+  /// Izin baca semua lagu di HP sudah diberikan.
+  bool get semuaLagu => _semua;
+
   List<Track> get video => _video;
   bool get memuat => _memuat;
   String? get galat => _galat;
@@ -34,17 +52,21 @@ class LibraryService extends ChangeNotifier {
     notifyListeners();
 
     try {
+      _semua = await YtDlp.hasAudioPermission().catchError((_) => false);
       final items = await YtDlp.listLibrary();
       final lagu = <Track>[];
       final video = <Track>[];
+      final milik = <String>{};
 
       for (final m in items) {
-        final t = _dariMediaStore(m);
+        final t = dariMediaStore(m);
         (m['video'] == true ? video : lagu).add(t);
+        if (m['mull'] == true && t.localPath != null) milik.add(t.localPath!);
       }
 
       _lagu = lagu;
       _video = video;
+      _milikMull = milik;
     } catch (e) {
       _galat = 'Nggak bisa baca pustaka: $e';
     } finally {
@@ -53,7 +75,19 @@ class LibraryService extends ChangeNotifier {
     }
   }
 
+  /// Minta izin baca semua lagu, lalu muat ulang kalau diizinkan.
+  /// Balikin false kalau ditolak.
+  Future<bool> mintaIzinSemua() async {
+    final ok = await YtDlp.ensureAudioPermission().catchError((_) => false);
+    if (ok) {
+      _semua = true;
+      await muat();
+    }
+    return ok;
+  }
+
   Future<bool> hapus(Track t) async {
+    if (!milikMull(t)) return false;
     final uri = t.localPath;
     if (uri == null) return false;
     final ok = await YtDlp.deleteMedia(uri);
@@ -69,14 +103,15 @@ class LibraryService extends ChangeNotifier {
   /// Dipakai buat memulihkan judul dan id asli dari nama berkas.
   static final _polaNama = RegExp(r'^(.*?)\s*\[([A-Za-z0-9_-]{6,})\]\.[^.]+$');
 
-  static Track _dariMediaStore(Map<String, dynamic> m) {
+  @visibleForTesting
+  static Track dariMediaStore(Map<String, dynamic> m) {
     final nama = (m['name'] as String?) ?? 'Tanpa nama';
     final cocok = _polaNama.firstMatch(nama);
 
     final judulTag = (m['title'] as String?)?.trim();
     final judul = (judulTag != null && judulTag.isNotEmpty)
         ? judulTag
-        : (cocok?.group(1) ?? nama);
+        : (cocok?.group(1) ?? nama.replaceFirst(RegExp(r'\.[A-Za-z0-9]{2,4}$'), ''));
 
     final ms = (m['durationMs'] as num?)?.toInt();
 
@@ -84,10 +119,19 @@ class LibraryService extends ChangeNotifier {
       // Id video asli kalau namanya masih berpola; kalau nggak, pakai uri.
       id: cocok?.group(2) ?? (m['uri'] as String? ?? nama),
       title: judul,
-      artist: (m['artist'] as String?)?.trim(),
+      artist: _artis(m['artist'] as String?),
       duration: ms != null && ms > 0 ? Duration(milliseconds: ms) : null,
+      // Sampul bawaan berkas, dibaca lewat Android (lihat GambarSampul).
+      thumbUrl: m['uri'] as String?,
       localPath: m['uri'] as String?,
       isVideo: m['video'] == true,
     );
+  }
+
+  /// MediaStore menulis `<unknown>` kalau tag artisnya kosong.
+  static String? _artis(String? a) {
+    final x = a?.trim();
+    if (x == null || x.isEmpty || x == '<unknown>') return null;
+    return x;
   }
 }

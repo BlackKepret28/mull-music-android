@@ -7,6 +7,7 @@ import '../services/playlist_service.dart';
 import '../services/recent_service.dart';
 import '../theme.dart';
 import '../widgets/bottom_nav.dart';
+import '../widgets/artwork.dart';
 import '../widgets/glass_surface.dart';
 import '../widgets/mull_ui.dart';
 import '../widgets/quick_tile.dart';
@@ -92,7 +93,8 @@ class HomeScreen extends StatelessWidget {
         listenable: Listenable.merge([lib, playlists, recent]),
         builder: (context, _) {
           final baruDiputar = recent.daftar.take(12).toList();
-          final baruDiunduh = lib.lagu.take(12).toList();
+          // Cuma unduhan Mull; lagu lain di HP bukan "baru diunduh".
+          final baruDiunduh = lib.laguMull.take(12).toList();
           final daftarPlaylist = playlists.daftar;
 
           final kosong = baruDiputar.isEmpty && baruDiunduh.isEmpty && daftarPlaylist.isEmpty;
@@ -444,24 +446,13 @@ class _SampulPlaylistKotak extends StatelessWidget {
             color: c.violetSoft,
             child: Icon(Icons.queue_music_rounded, color: c.violet, size: 30),
           ),
-        1 || 2 || 3 => Image.network(
-            sampul.first,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            errorBuilder: (_, _, _) => ColoredBox(color: c.chipBg),
-          ),
+        1 || 2 || 3 => GambarSampul(url: sampul.first, cadangan: ColoredBox(color: c.chipBg)),
         _ => GridView.count(
             crossAxisCount: 2,
             padding: EdgeInsets.zero,
             physics: const NeverScrollableScrollPhysics(),
             children: [
-              for (final u in sampul)
-                Image.network(
-                  u,
-                  fit: BoxFit.cover,
-                  gaplessPlayback: true,
-                  errorBuilder: (_, _, _) => ColoredBox(color: c.chipBg),
-                ),
+              for (final u in sampul) GambarSampul(url: u, cadangan: ColoredBox(color: c.chipBg)),
             ],
           ),
       },

@@ -16,7 +16,12 @@ enum _Urut { terbaru, judul, artis }
 
 /// Pustaka: berkas yang sudah ada di HP, plus playlist lokal.
 class LibraryScreen extends StatefulWidget {
-  const LibraryScreen({super.key, this.onGoSearch, this.onPlay, this.onPlayAcak});
+  const LibraryScreen({
+    super.key,
+    this.onGoSearch,
+    this.onPlay,
+    this.onPlayAcak,
+  });
 
   final VoidCallback? onGoSearch;
   final void Function(List<Track> daftar, int indeks)? onPlay;
@@ -30,6 +35,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
   final _lib = LibraryService.instance;
   int _tab = 0;
   _Urut _urut = _Urut.terbaru;
+
+  /// Chip "Dari Mull": cuma unduhan Mull, tanpa lagu lain di HP.
+  bool _hanyaMull = false;
+
+  Future<void> _mintaIzin() async {
+    final ok = await _lib.mintaIzinSemua();
+    if (ok || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Izinnya belum dikasih. Bisa diatur lewat Pengaturan HP > Aplikasi > Mull Music > Izin.',
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -46,11 +66,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<Track> _urutkan(List<Track> asli) {
     if (_urut == _Urut.terbaru) return asli;
     final salinan = [...asli];
-    salinan.sort((a, b) => switch (_urut) {
-          _Urut.judul => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
-          _Urut.artis => (a.artist ?? '~').toLowerCase().compareTo((b.artist ?? '~').toLowerCase()),
-          _Urut.terbaru => 0,
-        });
+    salinan.sort(
+      (a, b) => switch (_urut) {
+        _Urut.judul => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        _Urut.artis => (a.artist ?? '~').toLowerCase().compareTo(
+          (b.artist ?? '~').toLowerCase(),
+        ),
+        _Urut.terbaru => 0,
+      },
+    );
     return salinan;
   }
 
@@ -61,8 +85,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
         title: const Text('Hapus berkas?'),
         content: Text('"${t.title}" bakal dihapus permanen dari HP kamu.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Hapus')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus'),
+          ),
         ],
       ),
     );
@@ -71,7 +101,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final ok = await _lib.hapus(t);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? 'Berkas dihapus.' : 'Nggak bisa menghapus berkas itu.')),
+      SnackBar(
+        content: Text(
+          ok ? 'Berkas dihapus.' : 'Nggak bisa menghapus berkas itu.',
+        ),
+      ),
     );
   }
 
@@ -80,33 +114,47 @@ class _LibraryScreenState extends State<LibraryScreen> {
       context,
       judul: t.title,
       builder: (ctx) => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 22),
-              leading: const KotakIkon(ikon: Icons.playlist_add_rounded, nada: NadaIkon.lavender),
-              title: const Text('Tambah ke playlist'),
-              onTap: () {
-                Navigator.pop(ctx);
-                tampilkanTambahKePlaylist(context, t);
-              },
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 22),
+            leading: const KotakIkon(
+              ikon: Icons.playlist_add_rounded,
+              nada: NadaIkon.lavender,
             ),
+            title: const Text('Tambah ke playlist'),
+            onTap: () {
+              Navigator.pop(ctx);
+              tampilkanTambahKePlaylist(context, t);
+            },
+          ),
+          if (_lib.milikMull(t))
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 22),
               leading: Container(
                 width: 40,
                 height: 40,
-                decoration: BoxDecoration(color: ctx.mull.dangerSoft, borderRadius: BorderRadius.circular(13)),
-                child: Icon(Icons.delete_outline_rounded, size: 21, color: ctx.mull.danger),
+                decoration: BoxDecoration(
+                  color: ctx.mull.dangerSoft,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(
+                  Icons.delete_outline_rounded,
+                  size: 21,
+                  color: ctx.mull.danger,
+                ),
               ),
-              title: Text('Hapus dari HP', style: TextStyle(color: ctx.mull.danger)),
+              title: Text(
+                'Hapus dari HP',
+                style: TextStyle(color: ctx.mull.danger),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 _hapus(t);
               },
             ),
-          ],
-        ),
+        ],
+      ),
     );
   }
 
@@ -117,7 +165,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       body: ListenableBuilder(
         listenable: _lib,
         builder: (context, _) {
-          final lagu = _urutkan(_lib.lagu);
+          final lagu = _urutkan(_hanyaMull ? _lib.laguMull : _lib.lagu);
           final video = _urutkan(_lib.video);
 
           return HalamanKaca(
@@ -153,22 +201,29 @@ class _LibraryScreenState extends State<LibraryScreen> {
           icon: Icons.error_outline_rounded,
           title: 'Pustaka gagal dibaca',
           message: _lib.galat,
-          action: FilledButton(onPressed: _lib.muat, child: const Text('Coba lagi')),
+          action: FilledButton(
+            onPressed: _lib.muat,
+            child: const Text('Coba lagi'),
+          ),
         ),
       );
     }
 
     return switch (_tab) {
       0 => _TabLagu(
-          lagu: lagu,
-          padding: padding,
-          urut: _urut,
-          onUrut: (u) => setState(() => _urut = u),
-          onPlay: widget.onPlay,
-          onPlayAcak: widget.onPlayAcak,
-          onMenu: _menuBerkas,
-          onGoSearch: widget.onGoSearch,
-        ),
+        lagu: lagu,
+        padding: padding,
+        semuaLagu: _lib.semuaLagu,
+        hanyaMull: _hanyaMull,
+        onFilter: (v) => setState(() => _hanyaMull = v),
+        onIzin: _mintaIzin,
+        urut: _urut,
+        onUrut: (u) => setState(() => _urut = u),
+        onPlay: widget.onPlay,
+        onPlayAcak: widget.onPlayAcak,
+        onMenu: _menuBerkas,
+        onGoSearch: widget.onGoSearch,
+      ),
       1 => _TabVideo(video: video, padding: padding, onMenu: _menuBerkas),
       _ => _TabPlaylist(padding: padding),
     };
@@ -200,14 +255,20 @@ class _Kepala extends StatelessWidget {
 
     return HeaderKaca(
       judul: 'Pustaka',
-      subjudul: bagian.isEmpty ? 'Semua yang ada di HP kamu' : bagian.join('  ·  '),
+      subjudul: bagian.isEmpty
+          ? 'Semua yang ada di HP kamu'
+          : bagian.join('  ·  '),
       aksi: [
         TombolIkon(
           ikon: Icons.refresh_rounded,
           tooltip: 'Muat ulang',
           onPressed: memuat ? null : onMuatUlang,
           child: memuat
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : null,
         ),
       ],
@@ -220,6 +281,10 @@ class _TabLagu extends StatelessWidget {
   const _TabLagu({
     required this.lagu,
     required this.padding,
+    required this.semuaLagu,
+    required this.hanyaMull,
+    required this.onFilter,
+    required this.onIzin,
     required this.urut,
     required this.onUrut,
     required this.onMenu,
@@ -230,6 +295,10 @@ class _TabLagu extends StatelessWidget {
 
   final List<Track> lagu;
   final EdgeInsets padding;
+  final bool semuaLagu;
+  final bool hanyaMull;
+  final ValueChanged<bool> onFilter;
+  final VoidCallback onIzin;
   final _Urut urut;
   final ValueChanged<_Urut> onUrut;
   final void Function(Track) onMenu;
@@ -239,40 +308,150 @@ class _TabLagu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (lagu.isEmpty) {
+    if (lagu.isEmpty && !semuaLagu) {
       return Padding(
         padding: padding,
         child: EmptyState(
           icon: Icons.music_note_rounded,
           title: 'Belum ada lagu',
-          message: 'Lagu yang kamu unduh disimpan di Music/Mull dan bisa diputar tanpa internet.',
-          action: FilledButton(onPressed: onGoSearch, child: const Text('Cari lagu')),
+          message:
+              'Izinkan Mull baca lagu di HP kamu biar semuanya muncul di sini, '
+              'atau cari lagu baru buat diunduh.',
+          action: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton(
+                onPressed: onIzin,
+                child: const Text('Tampilkan lagu di HP'),
+              ),
+              OutlinedButton(
+                onPressed: onGoSearch,
+                child: const Text('Cari lagu'),
+              ),
+            ],
+          ),
         ),
+      );
+    }
+
+    // Baris atas: ajakan kasih izin, atau chip saring kalau izinnya sudah ada.
+    final atas = <Widget>[
+      if (!semuaLagu) _KartuIzin(onIzin: onIzin),
+      if (semuaLagu)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Row(
+            children: [
+              ChipMull(
+                label: 'Semua',
+                terpilih: !hanyaMull,
+                onTap: () => onFilter(false),
+              ),
+              const SizedBox(width: 8),
+              ChipMull(
+                label: 'Dari Mull',
+                terpilih: hanyaMull,
+                onTap: () => onFilter(true),
+              ),
+            ],
+          ),
+        ),
+      if (lagu.isNotEmpty)
+        _BarisAksi(
+          urut: urut,
+          onUrut: onUrut,
+          onPutar: onPlay == null ? null : () => onPlay!(lagu, 0),
+          onAcak: onPlayAcak == null ? null : () => onPlayAcak!(lagu),
+        ),
+    ];
+
+    if (lagu.isEmpty) {
+      return ListView(
+        padding: padding,
+        children: [
+          ...atas,
+          const SizedBox(height: 40),
+          const EmptyState(
+            icon: Icons.download_rounded,
+            title: 'Belum ada unduhan Mull',
+            message: 'Lagu yang kamu unduh lewat Mull masuk ke Music/Mull dan muncul di sini.',
+          ),
+        ],
       );
     }
 
     return ListView.builder(
       padding: padding,
-      itemCount: lagu.length + 2,
+      itemCount: atas.length + lagu.length + 1,
       itemBuilder: (context, i) {
-        if (i == lagu.length + 1) {
-          return const PetunjukAkhir('Ketuk titik tiga di lagu buat nambah ke playlist atau hapus dari HP.');
-        }
-        if (i == 0) {
-          return _BarisAksi(
-            urut: urut,
-            onUrut: onUrut,
-            onPutar: onPlay == null ? null : () => onPlay!(lagu, 0),
-            onAcak: onPlayAcak == null ? null : () => onPlayAcak!(lagu),
+        if (i < atas.length) return atas[i];
+        final j = i - atas.length;
+        if (j == lagu.length) {
+          return PetunjukAkhir(
+            semuaLagu
+                ? 'Ketuk titik tiga buat nambah ke playlist. Lagu unduhan Mull juga bisa dihapus dari situ.'
+                : 'Ketuk titik tiga di lagu buat nambah ke playlist atau hapus dari HP.',
           );
         }
-        final t = lagu[i - 1];
+        final t = lagu[j];
         return TrackTile(
           track: t,
-          onTap: onPlay == null ? null : () => onPlay!(lagu, i - 1),
+          onTap: onPlay == null ? null : () => onPlay!(lagu, j),
           onMenu: () => onMenu(t),
         );
       },
+    );
+  }
+}
+
+/// Ajakan kasih izin baca lagu, biar semua lagu di HP masuk Pustaka.
+class _KartuIzin extends StatelessWidget {
+  const _KartuIzin({required this.onIzin});
+
+  final VoidCallback onIzin;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.mull;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+      child: KartuMull(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const KotakIkon(
+              ikon: Icons.library_music_rounded,
+              nada: NadaIkon.mint,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Lagu lain di HP kamu',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Izinkan Mull baca lagu di HP, biar semuanya muncul di Pustaka dan bisa masuk playlist.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: c.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  TautanAksi(label: 'Izinkan', onTap: onIzin),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -335,7 +514,11 @@ class _BarisAksi extends StatelessWidget {
 }
 
 class _TabVideo extends StatelessWidget {
-  const _TabVideo({required this.video, required this.padding, required this.onMenu});
+  const _TabVideo({
+    required this.video,
+    required this.padding,
+    required this.onMenu,
+  });
 
   final List<Track> video;
   final EdgeInsets padding;
@@ -371,9 +554,9 @@ class _TabVideo extends StatelessWidget {
       itemCount: video.length,
       itemBuilder: (context, i) => VideoCard(
         track: video[i],
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => VideoScreen(track: video[i])),
-        ),
+        onTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => VideoScreen(track: video[i]))),
         onMenu: () => onMenu(video[i]),
       ),
     );
@@ -417,7 +600,9 @@ class _TabPlaylist extends StatelessWidget {
             return PlaylistCard(
               playlist: p,
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => PlaylistDetailScreen(playlist: p)),
+                MaterialPageRoute(
+                  builder: (_) => PlaylistDetailScreen(playlist: p),
+                ),
               ),
             );
           },

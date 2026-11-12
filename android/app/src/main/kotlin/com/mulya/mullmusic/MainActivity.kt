@@ -10,6 +10,9 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.graphics.Bitmap
+import android.util.Size
+import java.io.ByteArrayOutputStream
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
@@ -30,7 +33,10 @@ import java.util.concurrent.Executors
  *   exec(args)  -> jalankan yt-dlp mentah (buat diagnosa spike, mis. -v)
  *   downloadMedia(id, url, args?, video) -> unduh ke cache lalu pindahkan ke
  *       MediaStore (Music/Mull atau Movies/Mull). Balikin daftar file + uri.
- *   listLibrary() -> isi Music/Mull dan Movies/Mull dari MediaStore
+ *   listLibrary() -> isi Music/Mull dan Movies/Mull dari MediaStore, plus semua lagu
+ *                    di HP kalau izin baca audio sudah diberikan
+ *   hasAudioPermission / ensureAudioPermission -> izin baca lagu (READ_MEDIA_AUDIO)
+ *   thumbnail(uri, size) -> sampul bawaan berkas (JPEG), buat Pustaka
  *   deleteMedia(uri) -> hapus satu berkas pustaka
  *   ensureNotificationPermission -> minta POST_NOTIFICATIONS (Android 13+)
  *   launchArgs  -> extra dari intent (mis. autorun=true dari adb)
@@ -67,6 +73,14 @@ class MainActivity : AudioServiceActivity() {
                 // Dialog izin harus dari main thread, dan jawabannya datang
                 // belakangan lewat onRequestPermissionsResult.
                 requestNotificationPermission(result)
+                return@setMethodCallHandler
+            }
+            if (call.method == "ensureAudioPermission") {
+                requestPermission(audioPermission(), result)
+                return@setMethodCallHandler
+            }
+            if (call.method == "hasAudioPermission") {
+                result.success(mapOf("granted" to hasAudioPermission()))
                 return@setMethodCallHandler
             }
             if (call.method == "launchArgs") {
@@ -212,7 +226,13 @@ class MainActivity : AudioServiceActivity() {
                     tmp.deleteRecursively()
                 }
             }
-            "listLibrary" -> mapOf("items" to listLibrary())
+            "listLibrary" -> mapOf("items" to listLibrary(), "all" to hasAudioPermission())
+            "thumbnail" -> mapOf(
+                "bytes" to thumbnail(
+                    Uri.parse(call.argument<String>("uri")!!),
+                    call.argument<Int>("size") ?: 256,
+                ),
+            )
             "deleteMedia" -> {
                 val uri = Uri.parse(call.argument<String>("uri")!!)
                 mapOf("deleted" to (contentResolver.delete(uri, null, null) > 0))
@@ -233,7 +253,21 @@ class MainActivity : AudioServiceActivity() {
             result.success(mapOf("granted" to true))
             return
         }
-        val izin = Manifest.permission.POST_NOTIFICATIONS
+        requestPermission(Manifest.permission.POST_NOTIFICATIONS, result)
+    }
+
+    /** Android 13+ punya izin khusus audio; di bawahnya masih izin penyimpanan. */
+    private fun audioPermission(): String =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+
+    private fun hasAudioPermission(): Boolean =
+        checkSelfPermission(audioPermission()) == PackageManager.PERMISSION_GRANTED
+
+    private fun requestPermission(izin: String, result: MethodChannel.Result) {
         if (checkSelfPermission(izin) == PackageManager.PERMISSION_GRANTED) {
             result.success(mapOf("granted" to true))
             return
@@ -341,17 +375,30 @@ class MainActivity : AudioServiceActivity() {
                 add(MediaStore.MediaColumns.SIZE)
                 add(MediaStore.MediaColumns.DURATION)
                 add(MediaStore.MediaColumns.DATE_ADDED)
+                add(MediaStore.MediaColumns.RELATIVE_PATH)
                 if (!video) {
+                    add(MediaStore.Audio.Media.ALBUM)
                     add(MediaStore.Audio.Media.ARTIST)
                     add(MediaStore.Audio.Media.TITLE)
                 }
             }.toTypedArray()
 
+            // Lagu: kalau izin baca audio ada, ambil SEMUA yang ditandai musik
+            // oleh MediaStore (rekaman suara, nada dering, notifikasi nggak ikut),
+            // plus unduhan Mull. Tanpa izin, MediaStore cuma ngasih berkas
+            // milik app ini sendiri, jadi tetap pakai filter folder.
+            val semua = !video && hasAudioPermission()
+            val (pilih, arg) = if (semua) {
+                "${MediaStore.Audio.Media.IS_MUSIC}!=0 OR ${MediaStore.MediaColumns.RELATIVE_PATH}=?" to arrayOf(folder)
+            } else {
+                "${MediaStore.MediaColumns.RELATIVE_PATH}=?" to arrayOf(folder)
+            }
+
             contentResolver.query(
                 koleksi,
                 kolom,
-                "${MediaStore.MediaColumns.RELATIVE_PATH}=?",
-                arrayOf(folder),
+                pilih,
+                arg,
                 "${MediaStore.MediaColumns.DATE_ADDED} DESC",
             )?.use { c ->
                 val iId = c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
@@ -361,6 +408,8 @@ class MainActivity : AudioServiceActivity() {
                 val iTanggal = c.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED)
                 val iArtis = c.getColumnIndex(MediaStore.Audio.Media.ARTIST)
                 val iJudul = c.getColumnIndex(MediaStore.Audio.Media.TITLE)
+                val iAlbum = c.getColumnIndex(MediaStore.Audio.Media.ALBUM)
+                val iFolder = c.getColumnIndex(MediaStore.MediaColumns.RELATIVE_PATH)
 
                 while (c.moveToNext()) {
                     val id = c.getLong(iId)
@@ -372,6 +421,10 @@ class MainActivity : AudioServiceActivity() {
                         "size" to c.getLong(iUkuran),
                         "durationMs" to if (iDurasi >= 0 && !c.isNull(iDurasi)) c.getLong(iDurasi) else null,
                         "addedAt" to c.getLong(iTanggal),
+                        "album" to if (iAlbum >= 0 && !c.isNull(iAlbum)) c.getString(iAlbum) else null,
+                        "folder" to if (iFolder >= 0 && !c.isNull(iFolder)) c.getString(iFolder) else null,
+                        // Berkas unduhan Mull: cuma yang ini boleh dihapus dari app.
+                        "mull" to (iFolder >= 0 && c.getString(iFolder) == folder),
                         "video" to video,
                     )
                 }
@@ -379,6 +432,21 @@ class MainActivity : AudioServiceActivity() {
         }
 
         return hasil
+    }
+
+    /**
+     * Sampul bawaan berkas (tag gambar di lagu, atau cuplikan video), dikecilkan
+     * jadi JPEG. Null kalau berkasnya memang nggak punya gambar.
+     */
+    private fun thumbnail(uri: Uri, size: Int): ByteArray? = try {
+        val bmp = contentResolver.loadThumbnail(uri, Size(size, size), null)
+        ByteArrayOutputStream().use { out ->
+            bmp.compress(Bitmap.CompressFormat.JPEG, 85, out)
+            bmp.recycle()
+            out.toByteArray()
+        }
+    } catch (e: Exception) {
+        null
     }
 
     override fun onDestroy() {

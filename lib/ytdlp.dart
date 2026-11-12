@@ -89,6 +89,21 @@ class YtDlp {
         .toList(growable: false);
   }
 
+  /// Sudah boleh baca semua lagu di HP (READ_MEDIA_AUDIO)?
+  static Future<bool> hasAudioPermission() async =>
+      (await _call('hasAudioPermission'))['granted'] == true;
+
+  /// Minta izin baca lagu. Dialognya dari sistem, jawabannya datang belakangan.
+  static Future<bool> ensureAudioPermission() async =>
+      (await _call('ensureAudioPermission'))['granted'] == true;
+
+  /// Sampul bawaan berkas lokal (JPEG). Null kalau berkasnya nggak punya gambar.
+  static Future<Uint8List?> thumbnail(String uri, {int size = 256}) async {
+    final r = await _call('thumbnail', {'uri': uri, 'size': size});
+    final b = r['bytes'];
+    return b is Uint8List ? b : null;
+  }
+
   static Future<bool> deleteMedia(String uri) async =>
       (await _call('deleteMedia', {'uri': uri}))['deleted'] == true;
 
