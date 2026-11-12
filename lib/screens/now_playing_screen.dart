@@ -5,6 +5,7 @@ import '../models/track.dart';
 import '../services/player_service.dart';
 import '../widgets/artwork.dart';
 import '../widgets/lyrics_view.dart';
+import '../widgets/mull_ui.dart';
 
 /// Layar Sedang diputar, muncul dari bawah waktu bar pemutar mini diketuk.
 class NowPlayingScreen extends StatefulWidget {
@@ -20,37 +21,60 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Tutup',
-          icon: const Icon(Icons.keyboard_arrow_down, size: 30),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        title: Text(
-          _lirik ? 'Lirik' : 'Sedang diputar',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            tooltip: _lirik ? 'Tampilkan sampul' : 'Tampilkan lirik',
-            icon: Icon(_lirik ? Icons.album_outlined : Icons.lyrics_outlined),
-            onPressed: () => setState(() => _lirik = !_lirik),
+    return StreamBuilder<MediaItem?>(
+      stream: _player.mediaItem,
+      builder: (context, snap) {
+        final item = snap.data;
+        return Scaffold(
+          extendBodyBehindAppBar: true,
+          appBar: AppBar(
+            leadingWidth: 68,
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Center(
+                child: TombolIkon(
+                  ikon: Icons.keyboard_arrow_down_rounded,
+                  tooltip: 'Tutup',
+                  kaca: true,
+                  ukuranIkon: 28,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
+              ),
+            ),
+            title: Text(
+              _lirik ? 'Lirik' : 'Sedang diputar',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+            centerTitle: true,
+            actions: [
+              TombolIkon(
+                ikon: _lirik ? Icons.album_rounded : Icons.lyrics_rounded,
+                tooltip: _lirik ? 'Tampilkan sampul' : 'Tampilkan lirik',
+                kaca: true,
+                onPressed: () => setState(() => _lirik = !_lirik),
+              ),
+              const SizedBox(width: 16),
+            ],
           ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: StreamBuilder<MediaItem?>(
-        stream: _player.mediaItem,
-        builder: (context, snap) {
-          final item = snap.data;
-          if (item == null) {
-            return const Center(child: Text('Nggak ada yang diputar.'));
-          }
-          return _Isi(player: _player, item: item, lirik: _lirik);
-        },
-      ),
+          body: Stack(
+            children: [
+              // Cahaya pastel ikut warna sampul lagu yang lagi diputar.
+              Positioned.fill(child: LatarSampul(sampul: item?.artUri?.toString())),
+              if (item == null)
+                const Center(child: Text('Nggak ada yang diputar.'))
+              else
+                Padding(
+                  padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top + kToolbarHeight),
+                  child: MediaQuery.removePadding(
+                    context: context,
+                    removeTop: true,
+                    child: _Isi(player: _player, item: item, lirik: _lirik),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -273,40 +297,28 @@ class _Kontrol extends StatelessWidget {
               iconSize: 36,
               tooltip: 'Sebelumnya',
               onPressed: player.skipToPrevious,
-              icon: const Icon(Icons.skip_previous),
+              icon: const Icon(Icons.skip_previous_rounded),
             ),
             const SizedBox(width: 20),
-            SizedBox(
-              width: 68,
-              height: 68,
+            TombolPutar(
+              ikon: main ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              tooltip: main ? 'Jeda' : 'Putar',
+              ukuran: 72,
+              onPressed: sibuk ? null : (main ? player.pause : player.play),
               child: sibuk
-                  ? Center(
-                      child: SizedBox(
-                        width: 30,
-                        height: 30,
-                        child: CircularProgressIndicator(strokeWidth: 2.5, color: cs.primary),
-                      ),
+                  ? SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(strokeWidth: 2.5, color: cs.onPrimary),
                     )
-                  : Material(
-                      color: cs.primary,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: main ? player.pause : player.play,
-                        child: Icon(
-                          main ? Icons.pause : Icons.play_arrow,
-                          size: 36,
-                          color: cs.onPrimary,
-                        ),
-                      ),
-                    ),
+                  : null,
             ),
             const SizedBox(width: 20),
             IconButton(
               iconSize: 36,
               tooltip: 'Berikutnya',
               onPressed: player.skipToNext,
-              icon: const Icon(Icons.skip_next),
+              icon: const Icon(Icons.skip_next_rounded),
             ),
           ],
         );
