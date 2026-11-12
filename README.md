@@ -18,7 +18,9 @@ Statusnya masih dalam pengembangan dan belum pernah dirilis.
   lain, dan nggak ikut terhapus waktu Mull dicopot.
 - **Pustaka** berisi berkas yang sudah ada di HP, bisa diputar tanpa internet.
 - **Playlist** buatan sendiri, disimpan lokal.
-- **Tema terang dan gelap**, plus efek kaca yang bisa dimatikan.
+- **Tema terang dan gelap** dengan gaya yang sama seperti app MSA: kartu
+  bersudut bulat di atas latar pastel lembut (ikut warna sampul lagu yang
+  diputar), plus panel kaca melayang yang bisa dimatikan.
 
 Belum ada: Kenali lagu, impor dari Spotify, akun, dan sinkron dengan versi
 Windows.
@@ -143,6 +145,7 @@ Aplikasi ini memakai komponen pihak ketiga berikut:
 | [youtubedl-android](https://github.com/JunkFood02/youtubedl-android) | GPL-3.0 |
 | [FFmpeg](https://ffmpeg.org) | sesuai build yang dipakai youtubedl-android |
 | [QuickJS](https://bellard.org/quickjs/) | MIT |
+| [Plus Jakarta Sans](https://github.com/tokotype/PlusJakartaSans) (font) | SIL OFL 1.1, lihat `assets/fonts/OFL.txt` |
 | [Flutter](https://flutter.dev) dan paket pub.dev | lihat `pubspec.lock` |
 
 Lirik berasal dari [LRCLIB](https://lrclib.net), basis data lirik terbuka.
