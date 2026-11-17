@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../aksi.dart';
 import '../models/track.dart';
+import '../services/download_service.dart';
 import '../services/import_service.dart';
+import '../services/library_service.dart';
 import '../services/playlist_service.dart';
 import '../theme.dart';
 import '../widgets/empty_state.dart';
@@ -135,11 +137,6 @@ class PlaylistDetailScreen extends StatelessWidget {
                         'pustaka' => Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => PilihPustakaScreen(playlist: playlist)),
                           ),
-                        'cariPustaka' => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => PilihPustakaScreen(playlist: playlist, langsungCari: true),
-                            ),
-                          ),
                         'impor' => Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => ImportScreen(ke: playlist)),
                           ),
@@ -149,7 +146,6 @@ class PlaylistDetailScreen extends StatelessWidget {
                       },
                       itemBuilder: (_) => const [
                         PopupMenuItem(value: 'bagikan', child: Text('Bagikan')),
-                        PopupMenuItem(value: 'cariPustaka', child: Text('Cari di Pustaka')),
                         PopupMenuItem(value: 'pustaka', child: Text('Tambah dari Pustaka')),
                         PopupMenuItem(value: 'impor', child: Text('Impor dari tautan')),
                         PopupMenuItem(value: 'nama', child: Text('Ganti nama')),
@@ -208,39 +204,82 @@ class PlaylistDetailScreen extends StatelessWidget {
                         header: _SampulBesar(playlist: playlist),
                         itemCount: lagu.length,
                         footer: const PetunjukAkhir(
-                          'Tahan lagu buat ganti urutan, geser ke kiri buat buang dari playlist.',
+                          'Tahan lagu buat ganti urutan. Geser ke kanan buat buang dari playlist, geser ke kiri buat unduh.',
                         ),
                         // onReorderItem (bukan onReorder yang sudah usang)
                         // sudah membetulkan indeks tujuannya sendiri.
                         onReorderItem: (dari, ke) => PlaylistService.instance
                             .pindahLagu(playlist, dari, ke),
-                        itemBuilder: (context, i) => Dismissible(
+                        itemBuilder: (context, i) => ListenableBuilder(
+                          // Key harus di akar item (syarat ReorderableListView).
                           key: ValueKey('${playlist.id}/${lagu[i].id}'),
-                          direction: DismissDirection.endToStart,
-                          onDismissed: (_) => PlaylistService.instance
-                              .hapusLagu(playlist, lagu[i]),
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 5,
-                            ),
-                            padding: const EdgeInsets.only(right: 24),
-                            decoration: BoxDecoration(
-                              color: c.dangerSoft,
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Icon(
-                              Icons.remove_circle_outline_rounded,
-                              color: c.danger,
-                            ),
-                          ),
-                          child: TrackTile(
-                            track: lagu[i],
-                            onTap: onPlay == null
-                                ? null
-                                : () => onPlay!(lagu, i),
-                          ),
+                          // Arah geser tergantung lagunya sudah diunduh atau belum.
+                          listenable: Listenable.merge([
+                            DownloadService.instance,
+                            LibraryService.instance,
+                          ]),
+                          builder: (context, _) {
+                            final sudah = sudahDiunduh(lagu[i]);
+                            return Dismissible(
+                              key: ValueKey('geser/${playlist.id}/${lagu[i].id}'),
+                              // Kanan = buang dari playlist. Kiri = unduh (cuma
+                              // kalau belum diunduh).
+                              direction: sudah
+                                  ? DismissDirection.startToEnd
+                                  : DismissDirection.horizontal,
+                              confirmDismiss: (arah) async {
+                                if (arah == DismissDirection.endToStart) {
+                                  // Unduh dimulai, barisnya balik lagi (nggak hilang).
+                                  unduhLagu(context, lagu[i]);
+                                  return false;
+                                }
+                                return true;
+                              },
+                              onDismissed: (arah) {
+                                if (arah == DismissDirection.startToEnd) {
+                                  PlaylistService.instance.hapusLagu(playlist, lagu[i]);
+                                }
+                              },
+                              background: Container(
+                                alignment: Alignment.centerLeft,
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 5,
+                                ),
+                                padding: const EdgeInsets.only(left: 24),
+                                decoration: BoxDecoration(
+                                  color: c.dangerSoft,
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: Icon(
+                                  Icons.remove_circle_outline_rounded,
+                                  color: c.danger,
+                                ),
+                              ),
+                              secondaryBackground: Container(
+                                alignment: Alignment.centerRight,
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 5,
+                                ),
+                                padding: const EdgeInsets.only(right: 24),
+                                decoration: BoxDecoration(
+                                  color: c.accentSoft,
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: Icon(
+                                  Icons.download_rounded,
+                                  color: c.accent,
+                                ),
+                              ),
+                              child: TrackTile(
+                                track: lagu[i],
+                                onTap: onPlay == null
+                                    ? null
+                                    : () => onPlay!(lagu, i),
+                              ),
+                            );
+                          },
                         ),
                       ),
               ),

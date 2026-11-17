@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/track.dart';
 import '../ytdlp.dart';
+import 'innertube.dart';
 
 enum EngineStatus { belum, nyiapin, siap, gagal }
 
@@ -50,7 +51,16 @@ class YtDlpService extends ChangeNotifier {
   /// Permintaan URL yang lagi dikerjakan. Kalau prefetch lagu berikutnya
   /// masih jalan lalu pengguna menekan lagu itu, dia menumpang di proses yang
   /// sama (dulu jadi dua proses yt-dlp, dua kali 30 detik).
-  final _sedangDiambil = <String, Future<String>>{};
+  final _sedangDiambil = <String, _Permintaan>{};
+
+  /// Header yang harus ikut waktu URL dari jalur kilat diputar (User-Agent
+  /// klien yang dipakai waktu minta URL-nya).
+  final _headerUrl = <String, Map<String, String>>{};
+  Map<String, String>? headerUntuk(String url) => _headerUrl[url];
+
+  /// Berapa kali berturut-turut jalur kilat gagal. Kalau sering, YouTube
+  /// kemungkinan berubah: yt-dlp nggak perlu menunggu lagi.
+  int _kilatGagalBeruntun = 0;
 
   void _set(EngineStatus s, {String langkah = '', String? error}) {
     _status = s;
@@ -209,22 +219,79 @@ class YtDlpService extends ChangeNotifier {
 
   /// URL stream langsung buat diputar just_audio.
   ///
-  /// Ini bagian yang mahal: tanpa jalur cepat, QuickJS butuh 25-35 detik.
-  /// Hasilnya disimpan karena URL YouTube berlaku beberapa jam.
-  Future<String> streamUrl(Track t, {bool video = false}) {
+  /// Audio YouTube: coba jalur kilat dulu ([Innertube], ~1 detik, tanpa
+  /// Python). yt-dlp ikut jalan kalau jalur kilat gagal atau belum selesai
+  /// dalam 2,5 detik, dan yang duluan dapat menang. Video selalu lewat
+  /// yt-dlp. Hasilnya disimpan karena URL YouTube berlaku beberapa jam.
+  Future<String> streamUrl(Track t, {bool video = false, bool boleYtDlp = true}) {
     final kunci = '${t.id}|$video';
     final tersimpan = _cacheStream[kunci];
     if (tersimpan != null && !tersimpan.kedaluwarsa) return Future.value(tersimpan.url);
 
     final jalan = _sedangDiambil[kunci];
-    if (jalan != null) return jalan;
-
-    final f = _ambilUrl(t, kunci, video).whenComplete(() => _sedangDiambil.remove(kunci));
-    _sedangDiambil[kunci] = f;
-    return f;
+    if (jalan != null) {
+      // Prefetch "kilat saja" lagi jalan lalu pengguna menekan lagu itu:
+      // numpang dulu, dan kalau gagal ulangi dengan yt-dlp penuh.
+      if (boleYtDlp && !jalan.penuh) {
+        return jalan.hasil.catchError((Object _) => _mulai(t, kunci, video, true).hasil);
+      }
+      return jalan.hasil;
+    }
+    return _mulai(t, kunci, video, boleYtDlp).hasil;
   }
 
-  Future<String> _ambilUrl(Track t, String kunci, bool video) async {
+  _Permintaan _mulai(Track t, String kunci, bool video, bool boleYtDlp) {
+    final f = (video ? _ambilDariYtDlp(t, kunci, true) : _balapan(t, kunci, boleYtDlp))
+        .whenComplete(() => _sedangDiambil.remove(kunci));
+    final p = _Permintaan(f, video || boleYtDlp);
+    _sedangDiambil[kunci] = p;
+    return p;
+  }
+
+  /// Jalur kilat vs yt-dlp. yt-dlp baru dimulai kalau jalur kilat gagal atau
+  /// lambat, jadi kalau jalur kilat sehat, HP nggak menjalankan Python sama
+  /// sekali.
+  Future<String> _balapan(Track t, String kunci, bool boleYtDlp) {
+    if (!Innertube.bisaDipakai(t.id)) return _ambilDariYtDlp(t, kunci, false);
+
+    final hasil = Completer<String>();
+    var ytdlpJalan = false;
+
+    void mulaiYtDlp() {
+      if (ytdlpJalan || hasil.isCompleted) return;
+      ytdlpJalan = true;
+      _ambilDariYtDlp(t, kunci, false).then((u) {
+        if (!hasil.isCompleted) hasil.complete(u);
+      }, onError: (Object e, StackTrace s) {
+        if (!hasil.isCompleted) hasil.completeError(e, s);
+      });
+    }
+
+    Innertube.audio(t.id).then((u) {
+      _kilatGagalBeruntun = 0;
+      _headerUrl[u] = const {'User-Agent': Innertube.userAgent};
+      _cacheStream[kunci] = _UrlTersimpan(u);
+      if (!hasil.isCompleted) hasil.complete(u);
+    }, onError: (Object e, StackTrace s) {
+      _kilatGagalBeruntun++;
+      if (boleYtDlp) {
+        mulaiYtDlp();
+      } else if (!hasil.isCompleted) {
+        hasil.completeError(e, s);
+      }
+    });
+
+    if (boleYtDlp) {
+      if (_kilatGagalBeruntun >= 3) {
+        mulaiYtDlp();
+      } else {
+        Timer(const Duration(milliseconds: 2500), mulaiYtDlp);
+      }
+    }
+    return hasil.future;
+  }
+
+  Future<String> _ambilDariYtDlp(Track t, String kunci, bool video) async {
     await ensureReady();
 
     final format = video ? _formatVideo : _formatAudio;
@@ -273,12 +340,13 @@ class YtDlpService extends ChangeNotifier {
   }
 
   /// Siapkan URL di latar belakang supaya lagu berikutnya nggak nunggu.
-  /// Sengaja nggak melempar galat: ini cuma usaha tambahan.
-  void prefetch(Track t, {bool video = false}) {
+  /// Sengaja nggak melempar galat: ini cuma usaha tambahan. [boleYtDlp] false
+  /// = cuma jalur kilat (murah), buat tebak-tebakan seperti hasil pencarian.
+  void prefetch(Track t, {bool video = false, bool boleYtDlp = true}) {
     final kunci = '${t.id}|$video';
     final ada = _cacheStream[kunci];
     if (ada != null && !ada.kedaluwarsa) return;
-    streamUrl(t, video: video).ignore();
+    streamUrl(t, video: video, boleYtDlp: boleYtDlp).ignore();
   }
 
   /// Ubah pesan error yt-dlp jadi bahasa yang kebaca pengguna.
@@ -319,4 +387,12 @@ class _UrlTersimpan {
 
   /// URL YouTube biasanya tahan ~6 jam. Dipotong 3 jam biar aman.
   bool get kedaluwarsa => DateTime.now().difference(dibuat) > const Duration(hours: 3);
+}
+
+/// Permintaan URL yang lagi jalan. [penuh] = sudah boleh jatuh ke yt-dlp.
+class _Permintaan {
+  _Permintaan(this.hasil, this.penuh);
+
+  final Future<String> hasil;
+  final bool penuh;
 }

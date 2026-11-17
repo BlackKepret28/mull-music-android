@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'models/track.dart';
 import 'services/download_service.dart';
+import 'services/library_service.dart';
 import 'services/player_service.dart';
 import 'settings.dart';
 import 'theme.dart';
@@ -21,6 +22,15 @@ void putarDaftar(List<Track> daftar, int indeks) {
 void putarAcak(List<Track> daftar) {
   _mintaIzinNotifikasi();
   MullAudioHandler.instance.putarAcak(daftar);
+}
+
+/// Lagu ini sudah ada di HP (berkas lokal, ada di Pustaka, atau barusan
+/// selesai diunduh di sesi ini)?
+bool sudahDiunduh(Track t) {
+  if (t.isDownloaded) return true;
+  if (LibraryService.instance.lagu.any((e) => e.localPath != null && e.id == t.id)) return true;
+  return DownloadService.instance.antrean
+      .any((u) => !u.video && u.track.id == t.id && u.status == StatusUnduhan.selesai);
 }
 
 void unduhLagu(BuildContext context, Track t, {bool video = false, bool diam = false}) {

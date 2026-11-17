@@ -66,6 +66,12 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Folder config akun (config.json dibuat sendiri / ditulis CI dari secret,
+  # JANGAN di-commit). Foldernya harus terdaftar, kalau nggak asetnya nggak
+  # ikut kebundel dan login Google selalu "mati".
+  assets:
+    - assets/cloud/
+
   # Font ikut app MSA milik Mulya. Lisensi OFL: assets/fonts/OFL.txt
   fonts:
     - family: PlusJakartaSans

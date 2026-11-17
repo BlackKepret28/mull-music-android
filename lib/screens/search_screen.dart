@@ -85,6 +85,11 @@ class _SearchScreenState extends State<SearchScreen> {
         _hasil = hasil;
         _cari = false;
       });
+      // Siapkan URL 3 hasil teratas diam-diam lewat jalur kilat (murah), jadi
+      // ketukan pertama biasanya langsung bunyi.
+      for (final t in hasil.where((t) => t.localPath == null).take(3)) {
+        _service.prefetch(t, boleYtDlp: false);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {

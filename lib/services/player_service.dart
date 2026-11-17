@@ -297,7 +297,7 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
         final url = await _yt.streamUrl(t);
         // Pengguna keburu ganti lagu: buang hasil ini.
         if (aku != _token) return;
-        await _player.setUrl(url);
+        await _player.setUrl(url, headers: _yt.headerUntuk(url));
       }
       if (aku != _token) return;
 
@@ -307,9 +307,17 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
         mediaItem.add(_item(t).copyWith(duration: durasi));
       }
 
-      await _player.play();
-      // Dicatat setelah benar-benar jalan, supaya lagu yang gagal diputar
-      // nggak ikut masuk "Baru diputar".
+      // JANGAN di-await: Future play() baru selesai saat lagunya habis atau
+      // dijeda. Dulu baris di bawahnya (prefetch lagu berikutnya, catat
+      // "Baru diputar") baru jalan setelah lagu kelar, jadi tiap lagu
+      // berikutnya selalu mulai dari nol.
+      unawaited(_player.play().catchError((Object e) {
+        if (aku != _token) return;
+        galat.value = e.toString().replaceFirst('Exception: ', '');
+        _siarkan(mati: true);
+      }));
+      // Dicatat setelah sumbernya berhasil dimuat, supaya lagu yang gagal
+      // diputar nggak ikut masuk "Baru diputar".
       RecentService.instance.catat(t).ignore();
       _siapkanBerikutnya();
     } catch (e) {

@@ -32,7 +32,7 @@ class AkunGagal implements Exception {
 /// browser, Google mengarahkan balik ke server kecil di HP ini, kodenya
 /// ditukar jadi sesi Firebase.
 ///
-/// Konfigurasinya di `assets/cloud_config.json` (nggak di-commit karena repo
+/// Konfigurasinya di `assets/cloud/config.json` (nggak di-commit karena repo
 /// ini publik; di GitHub Actions ditulis dari secret `CLOUD_CONFIG_JSON`).
 /// Kalau kosong, semua fitur akun disembunyikan.
 class AkunService extends ChangeNotifier {
@@ -80,7 +80,7 @@ class AkunService extends ChangeNotifier {
 
   Future<void> muat() async {
     try {
-      final isi = await rootBundle.loadString('assets/cloud_config.json');
+      final isi = await rootBundle.loadString('assets/cloud/config.json');
       final j = jsonDecode(isi);
       if (j is Map) _cfg = Map<String, dynamic>.from(j);
     } catch (_) {

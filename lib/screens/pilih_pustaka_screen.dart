@@ -17,12 +17,9 @@ enum _Urut { terbaru, judul, artis }
 /// Pilih lagu dari Pustaka buat dimasukkan ke [playlist]: kolom cari,
 /// filter, urutan, dan centang banyak lagu sekaligus.
 class PilihPustakaScreen extends StatefulWidget {
-  const PilihPustakaScreen({super.key, required this.playlist, this.langsungCari = false});
+  const PilihPustakaScreen({super.key, required this.playlist});
 
   final Playlist playlist;
-
-  /// Kolom cari langsung aktif (keyboard muncul) begitu layar terbuka.
-  final bool langsungCari;
 
   @override
   State<PilihPustakaScreen> createState() => _PilihPustakaScreenState();
@@ -143,7 +140,6 @@ class _PilihPustakaScreenState extends State<PilihPustakaScreen> {
                   ],
                   bawah: _Saringan(
                     cari: _cari,
-                    autofokus: widget.langsungCari,
                     onCari: (v) => setState(() => _q = v),
                     saring: _saring,
                     onSaring: (s) => setState(() => _saring = s),
@@ -247,10 +243,9 @@ class _PilihPustakaScreenState extends State<PilihPustakaScreen> {
 
 /// Kolom cari + chip filter di bawah judul header.
 class _Saringan extends StatelessWidget {
-  const _Saringan({required this.cari, required this.onCari, required this.saring, required this.onSaring, this.autofokus = false});
+  const _Saringan({required this.cari, required this.onCari, required this.saring, required this.onSaring});
 
   final TextEditingController cari;
-  final bool autofokus;
   final ValueChanged<String> onCari;
   final _Saring saring;
   final ValueChanged<_Saring> onSaring;
@@ -277,7 +272,6 @@ class _Saringan extends StatelessWidget {
               Expanded(
                 child: TextField(
                   controller: cari,
-                  autofocus: autofokus,
                   onChanged: onCari,
                   textInputAction: TextInputAction.search,
                   style: TextStyle(fontSize: 14.5, color: c.text),

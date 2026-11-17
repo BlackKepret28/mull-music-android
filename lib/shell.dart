@@ -59,7 +59,13 @@ class _AppShellState extends State<AppShell> {
     // `muat()` langsung memberi tahu pendengarnya.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PlaylistService.instance.muat();
-      RecentService.instance.muat();
+      // Dua lagu teratas di "Baru diputar" paling mungkin diputar lagi:
+      // siapkan URL-nya lewat jalur kilat (murah, tanpa Python).
+      RecentService.instance.muat().then((_) {
+        for (final t in RecentService.instance.daftar.where((t) => t.localPath == null).take(2)) {
+          YtDlpService.instance.prefetch(t, boleYtDlp: false);
+        }
+      });
       // Tanpa izin ini notifikasi pemutar (dan kontrol di layar kunci)
       // nggak muncul di Android 13+. Diminta sekali waktu app dibuka.
       _mintaIzinNotifikasi();

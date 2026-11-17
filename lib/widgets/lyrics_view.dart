@@ -219,8 +219,8 @@ class _LyricsViewState extends State<LyricsView> {
                   style: TextStyle(
                     fontSize: aktif ? 19 : 16.5,
                     height: 1.35,
-                    fontWeight: aktif ? FontWeight.w700 : FontWeight.w500,
-                    color: aktif ? cs.primary : cs.onSurfaceVariant,
+                    fontWeight: aktif ? FontWeight.w800 : FontWeight.w500,
+                    color: aktif ? Colors.white : cs.onSurfaceVariant,
                   ),
                   child: Text(baris.teks.isEmpty ? '·' : baris.teks),
                 ),

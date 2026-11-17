@@ -48,6 +48,17 @@ jobs:
 
       - run: flutter test
 
+      - name: Tulis config akun (opsional)
+        env:
+          CLOUD_CONFIG_JSON: ${{ secrets.CLOUD_CONFIG_JSON }}
+        run: |
+          mkdir -p assets/cloud
+          if [ -n "$CLOUD_CONFIG_JSON" ]; then
+            printf '%s' "$CLOUD_CONFIG_JSON" > assets/cloud/config.json
+          else
+            echo "::warning::CLOUD_CONFIG_JSON kosong, login Google nonaktif di build ini."
+          fi
+
       - name: Siapkan kunci tanda tangan
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
