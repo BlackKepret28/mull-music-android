@@ -28,7 +28,7 @@ class AkunGagal implements Exception {
 /// laptop = playlist-nya sama.
 ///
 /// Login Google pakai alur yang sama dengan versi Windows (OAuth untuk app
-/// desktop, PKCE + alamat balik http://127.0.0.1:<port>): app membuka
+/// desktop, PKCE + alamat balik http://127.0.0.1:PORT): app membuka
 /// browser, Google mengarahkan balik ke server kecil di HP ini, kodenya
 /// ditukar jadi sesi Firebase.
 ///
