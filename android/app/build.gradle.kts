@@ -103,4 +103,6 @@ dependencies {
     // yt-dlp + Python + QuickJS (library) dan ffmpeg untuk Android, dirawat tim Seal. GPL-3.0.
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
     implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
+    // FileProvider, buat nyerahin APK update ke penginstal Android.
+    implementation("androidx.core:core:1.13.1")
 }

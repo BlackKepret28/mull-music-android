@@ -54,3 +54,5 @@ key.properties
 *.apk
 *.aab
 
+# Config akun Firebase/Google (rahasia, ditulis sendiri atau oleh CI)
+assets/cloud/config.json

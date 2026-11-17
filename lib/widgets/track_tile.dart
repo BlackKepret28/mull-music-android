@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/track.dart';
+import '../theme.dart';
 import 'artwork.dart';
 
 /// Satu baris lagu/video: di hasil Cari, Pustaka, dan antrean.
@@ -14,7 +15,11 @@ class TrackTile extends StatelessWidget {
     this.onTambahKePlaylist,
     this.onMenu,
     this.selected = false,
+    this.margin = const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
   });
+
+  /// Jarak luar kartu. Bawaannya 16 di kiri-kanan (buat daftar selebar layar).
+  final EdgeInsets margin;
 
   final Track track;
   final VoidCallback? onTap;
@@ -32,79 +37,122 @@ class TrackTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final c = context.mull;
 
     final bawah = <String>[
       if (track.artist != null) track.artist!,
       if (track.duration != null) formatDuration(track.duration!),
     ].join('  ·  ');
 
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            Artwork(url: track.thumbUrl, size: 48, radius: 6, isVideo: track.isVideo),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    track.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w500,
-                      height: 1.25,
-                      color: selected ? cs.primary : cs.onSurface,
+    // Kartu kecil per baris, ala daftar catatan MSA: isi solid, garis tipis,
+    // sudut 18. Yang sedang diputar dapat garis aksen.
+    final sudut = BorderRadius.circular(18);
+    return Container(
+      margin: margin,
+      decoration: BoxDecoration(
+        color: selected
+            ? Color.alphaBlend(c.accentSoft, c.surfaceSolid)
+            : c.surface,
+        borderRadius: sudut,
+        border: Border.all(
+          color: selected ? c.accent.withValues(alpha: 0.4) : c.border,
+        ),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: sudut,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 4, 10),
+            child: Row(
+              children: [
+                Artwork(
+                  url: track.thumbUrl,
+                  size: 48,
+                  radius: 12,
+                  isVideo: track.isVideo,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        track.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.25,
+                          color: selected ? c.accentStrong : c.text,
+                        ),
+                      ),
+                      if (bawah.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Text(
+                            bawah,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                              color: c.textMuted,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (track.isDownloaded)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Icon(
+                      Icons.download_done,
+                      size: 18,
+                      color: cs.primary,
                     ),
                   ),
-                  if (bawah.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Text(
-                        bawah,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant),
-                      ),
-                    ),
-                ],
-              ),
+                if (onMenu != null)
+                  IconButton(
+                    tooltip: 'Opsi lain',
+                    icon: const Icon(Icons.more_vert, size: 20),
+                    onPressed: onMenu,
+                  )
+                else if (onDownload != null || onTambahKePlaylist != null)
+                  PopupMenuButton<String>(
+                    tooltip: 'Opsi lain',
+                    icon: const Icon(Icons.more_vert, size: 20),
+                    onSelected: (v) => switch (v) {
+                      'unduh' => onDownload?.call(),
+                      'video' => onDownloadVideo?.call(),
+                      'playlist' => onTambahKePlaylist?.call(),
+                      _ => null,
+                    },
+                    itemBuilder: (_) => [
+                      if (onDownload != null && !track.isDownloaded)
+                        const PopupMenuItem(
+                          value: 'unduh',
+                          child: Text('Unduh lagu'),
+                        ),
+                      if (onDownloadVideo != null && !track.isDownloaded)
+                        const PopupMenuItem(
+                          value: 'video',
+                          child: Text('Unduh video 720p'),
+                        ),
+                      if (onTambahKePlaylist != null)
+                        const PopupMenuItem(
+                          value: 'playlist',
+                          child: Text('Tambah ke playlist'),
+                        ),
+                    ],
+                  ),
+              ],
             ),
-            if (track.isDownloaded)
-              Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: Icon(Icons.download_done, size: 18, color: cs.primary),
-              ),
-            if (onMenu != null)
-              IconButton(
-                tooltip: 'Opsi lain',
-                icon: const Icon(Icons.more_vert, size: 20),
-                onPressed: onMenu,
-              )
-            else if (onDownload != null || onTambahKePlaylist != null)
-              PopupMenuButton<String>(
-                tooltip: 'Opsi lain',
-                icon: const Icon(Icons.more_vert, size: 20),
-                onSelected: (v) => switch (v) {
-                  'unduh' => onDownload?.call(),
-                  'video' => onDownloadVideo?.call(),
-                  'playlist' => onTambahKePlaylist?.call(),
-                  _ => null,
-                },
-                itemBuilder: (_) => [
-                  if (onDownload != null && !track.isDownloaded)
-                    const PopupMenuItem(value: 'unduh', child: Text('Unduh lagu')),
-                  if (onDownloadVideo != null && !track.isDownloaded)
-                    const PopupMenuItem(value: 'video', child: Text('Unduh video 720p')),
-                  if (onTambahKePlaylist != null)
-                    const PopupMenuItem(value: 'playlist', child: Text('Tambah ke playlist')),
-                ],
-              ),
-          ],
+          ),
         ),
       ),
     );

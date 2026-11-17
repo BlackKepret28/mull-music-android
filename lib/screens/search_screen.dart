@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/track.dart';
 import '../services/ytdlp_service.dart';
-import '../widgets/bottom_nav.dart';
+import '../theme.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/mull_ui.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/track_tile.dart';
 import 'playlist_screen.dart';
@@ -84,6 +85,11 @@ class _SearchScreenState extends State<SearchScreen> {
         _hasil = hasil;
         _cari = false;
       });
+      // Siapkan URL 3 hasil teratas diam-diam lewat jalur kilat (murah), jadi
+      // ketukan pertama biasanya langsung bunyi.
+      for (final t in hasil.where((t) => t.localPath == null).take(3)) {
+        _service.prefetch(t, boleYtDlp: false);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -102,63 +108,107 @@ class _SearchScreenState extends State<SearchScreen> {
     });
   }
 
+  String get _subjudul {
+    final hasil = _hasil;
+    if (_cari) return YtDlpService.isUrl(_terakhir) ? 'Mengambil info tautan...' : 'Mencari "$_terakhir"...';
+    if (hasil != null && hasil.isNotEmpty) return '${hasil.length} hasil buat "$_terakhir"';
+    return 'Dari YouTube dan YouTube Music';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final c = context.mull;
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 16,
-        title: TextField(
-          controller: _controller,
-          textInputAction: TextInputAction.search,
-          onSubmitted: _submit,
-          decoration: InputDecoration(
-            hintText: 'Lagu, artis, atau tempel tautan',
-            prefixIcon: const Icon(Icons.search_rounded, size: 22),
-            suffixIcon: ValueListenableBuilder(
-              valueListenable: _controller,
-              builder: (_, value, _) => value.text.isEmpty
-                  ? const SizedBox.shrink()
-                  : IconButton(
-                      tooltip: 'Hapus',
-                      icon: const Icon(Icons.close_rounded, size: 20),
-                      onPressed: _bersihkan,
+      backgroundColor: Colors.transparent,
+      body: HalamanKaca(
+        header: HeaderKaca(
+          judul: 'Cari',
+          subjudul: _subjudul,
+          bawah: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Kolom cari pil (MSA): isi sedikit lebih pekat dari panel kacanya.
+              Container(
+                height: 48,
+                padding: const EdgeInsets.only(left: 16, right: 4),
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: c.border),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.search_rounded, size: 21, color: c.textSubtle),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: _submit,
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: c.text),
+                        decoration: InputDecoration(
+                          hintText: 'Lagu, artis, atau tempel tautan',
+                          hintStyle: TextStyle(fontSize: 15, color: c.textSubtle),
+                          filled: false,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
                     ),
-            ),
+                    ValueListenableBuilder(
+                      valueListenable: _controller,
+                      builder: (_, value, _) => value.text.isEmpty
+                          ? const SizedBox.shrink()
+                          : IconButton(
+                              tooltip: 'Hapus',
+                              icon: Icon(Icons.close_rounded, size: 20, color: c.textMuted),
+                              onPressed: _bersihkan,
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_cari)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: const LinearProgressIndicator(minHeight: 2.5),
+                  ),
+                ),
+            ],
           ),
         ),
-        bottom: _cari
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(2),
-                child: LinearProgressIndicator(
-                  minHeight: 2,
-                  backgroundColor: Theme.of(context).colorScheme.outlineVariant,
-                ),
-              )
-            : null,
+        isi: (context, padding) => _body(padding),
       ),
-      body: _body(),
     );
   }
 
-  Widget _body() {
+  Widget _body(EdgeInsets padding) {
     final hasil = _hasil;
-    final padding = EdgeInsets.only(top: 4, bottom: RuangBawah.of(context) + 16);
 
     if (_cari) {
       // Sudah punya hasil lama: biarkan kebaca, garis progres di atas sudah
       // cukup jadi tanda. Belum punya: tampilkan kerangka daftarnya.
       if (hasil != null && hasil.isNotEmpty) return _daftar(hasil, padding);
 
-      return Column(
-        children: [
-          _StatusCari(lamaBanget: _lamaBanget, service: _service),
-          Expanded(child: SkeletonTrackList(padding: padding)),
-        ],
+      return Padding(
+        padding: EdgeInsets.only(top: padding.top),
+        child: Column(
+          children: [
+            _StatusCari(lamaBanget: _lamaBanget, service: _service),
+            Expanded(child: SkeletonTrackList(padding: EdgeInsets.only(bottom: padding.bottom))),
+          ],
+        ),
       );
     }
 
     if (_galat != null) {
-      return EmptyState(
+      return _kosong(padding, EmptyState(
         icon: Icons.error_outline_rounded,
         title: 'Pencarian gagal',
         message: _galat,
@@ -166,33 +216,37 @@ class _SearchScreenState extends State<SearchScreen> {
           onPressed: () => _submit(_terakhir),
           child: const Text('Coba lagi'),
         ),
-      );
+      ));
     }
 
     if (hasil == null) {
-      return const EmptyState(
+      return _kosong(padding, const EmptyState(
         icon: Icons.search_rounded,
         title: 'Mau dengar apa?',
         message: 'Tulis judul lagu, nama artis, atau tempel tautan YouTube.',
-      );
+      ));
     }
 
     if (hasil.isEmpty) {
-      return EmptyState(
+      return _kosong(padding, EmptyState(
         icon: Icons.search_off_rounded,
         title: 'Nggak ada hasil',
-        message: 'Nggak ketemu apa pun buat "$_terakhir". Coba kata lain.',
-      );
+        message: 'Nggak ketemu apa pun buat "$_terakhir". Coba kata lain, atau tempel tautannya langsung.',
+      ));
     }
 
     return _daftar(hasil, padding);
   }
 
+  Widget _kosong(EdgeInsets padding, Widget isi) => Padding(padding: padding, child: isi);
+
   Widget _daftar(List<Track> hasil, EdgeInsets padding) {
     return ListView.builder(
       padding: padding,
-      itemCount: hasil.length,
-      itemBuilder: (_, i) => TrackTile(
+      itemCount: hasil.length + 1,
+      itemBuilder: (_, i) => i == hasil.length
+          ? const PetunjukAkhir('Ketuk lagu buat langsung putar. Titik tiga buat unduh atau simpan ke playlist.')
+          : TrackTile(
         track: hasil[i],
         onTap: widget.onPlay == null ? null : () => widget.onPlay!(hasil, i),
         onDownload: widget.onDownload == null ? null : () => widget.onDownload!(hasil[i]),

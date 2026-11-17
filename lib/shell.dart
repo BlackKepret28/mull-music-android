@@ -4,27 +4,34 @@ import 'package:flutter/material.dart';
 import 'models/track.dart';
 import 'screens/downloads_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/import_screen.dart';
 import 'screens/library_screen.dart';
 import 'screens/now_playing_screen.dart';
 import 'screens/search_screen.dart';
 import 'services/download_service.dart';
+import 'services/finder_service.dart';
+import 'services/import_service.dart';
 import 'services/player_service.dart';
 import 'services/playlist_service.dart';
 import 'services/recent_service.dart';
+import 'services/update_service.dart';
 import 'services/ytdlp_service.dart';
 import 'settings.dart';
 import 'ytdlp.dart';
 import 'widgets/bottom_nav.dart';
 import 'widgets/glass_surface.dart';
 import 'widgets/mini_player.dart';
+import 'widgets/mull_ui.dart';
 
-/// Tinggi bar pemutar mini (isi + garis progres).
-const _tinggiPemutar = 62.0;
-const _tinggiNav = 60.0;
+/// Tinggi kapsul pemutar mini dan pil navigasi (MsaTabBar: 64).
+const _tinggiPemutar = 64.0;
+const _tinggiNav = 64.0;
+const _jarakPanel = 8.0;
 
-/// Kerangka utama: panel kaca mengambang di bawah berisi bar pemutar mini
-/// dan navigasi empat tab. Isi halaman sengaja lewat di bawah panel itu
-/// (`extendBody: true`) supaya kacanya ada yang dibiaskan.
+/// Kerangka utama ala MSA: latar pastel di paling belakang, lalu dua kapsul
+/// kaca melayang di bawah (pemutar mini, navigasi empat tab). Isi halaman
+/// sengaja lewat di bawah kapsul itu (`extendBody: true`) supaya kacanya ada
+/// yang dibiaskan.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -36,10 +43,6 @@ class _AppShellState extends State<AppShell> {
   final _player = MullAudioHandler.instance;
   final _unduhan = DownloadService.instance;
   int _tab = 0;
-
-  /// Izin notifikasi cuma diminta sekali, pas pertama kali pengguna memutar
-  /// atau mengunduh sesuatu. Minta di layar pembuka cuma bikin bingung.
-  bool _izinDiminta = false;
 
   /// Jembatan Beranda -> Cari waktu tombol Tempel tautan ditekan.
   final _permintaanCari = ValueNotifier<String?>(null);
@@ -56,7 +59,22 @@ class _AppShellState extends State<AppShell> {
     // `muat()` langsung memberi tahu pendengarnya.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PlaylistService.instance.muat();
-      RecentService.instance.muat();
+      // Dua lagu teratas di "Baru diputar" paling mungkin diputar lagi:
+      // siapkan URL-nya lewat jalur kilat (murah, tanpa Python).
+      RecentService.instance.muat().then((_) {
+        for (final t in RecentService.instance.daftar.where((t) => t.localPath == null).take(2)) {
+          YtDlpService.instance.prefetch(t, boleYtDlp: false);
+        }
+      });
+      // Tanpa izin ini notifikasi pemutar (dan kontrol di layar kunci)
+      // nggak muncul di Android 13+. Diminta sekali waktu app dibuka.
+      _mintaIzinNotifikasi();
+      FinderService.instance.muat();
+      // Cek versi baru diam-diam (paling sering sekali sehari). Kalau ada,
+      // kartu kecil muncul di Beranda.
+      if (SettingsScope.of(context).waktunyaCekUpdate()) {
+        UpdateService.instance.cek(diam: true);
+      }
     });
   }
 
@@ -67,6 +85,13 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _tempelTautan(String tautan) {
+    // Tautan playlist (YouTube, Spotify) atau kode Mull: langsung ke Impor.
+    if (ImportService.tampakPlaylist(tautan)) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => ImportScreen(teksAwal: tautan)),
+      );
+      return;
+    }
     setState(() => _tab = 1);
     // Diset ulang ke null dulu supaya tautan yang sama bisa dikirim dua kali.
     _permintaanCari.value = null;
@@ -75,12 +100,7 @@ class _AppShellState extends State<AppShell> {
 
   void _goSearch() => setState(() => _tab = 1);
 
-  void _mintaIzinNotifikasi() {
-    if (_izinDiminta) return;
-    _izinDiminta = true;
-    // Gagal pun nggak apa-apa: musiknya tetap jalan, cuma tanpa notifikasi.
-    YtDlp.ensureNotificationPermission().ignore();
-  }
+  void _mintaIzinNotifikasi() => YtDlp.mintaIzinNotifikasi().ignore();
 
   /// Putar satu daftar mulai dari lagu yang diketuk, supaya tombol
   /// berikutnya/sebelumnya ada isinya.
@@ -118,61 +138,81 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final sisaBawah = MediaQuery.viewPaddingOf(context).bottom;
-    final marginBawah = sisaBawah + 10;
+    final marginBawah = sisaBawah + 12;
+    final lebarNav = (MediaQuery.sizeOf(context).width - 24).clamp(0.0, 380.0);
 
     return StreamBuilder<MediaItem?>(
       stream: _player.mediaItem,
       builder: (context, snapItem) {
         final item = snapItem.data;
-        final tinggiPanel = (item == null ? 0 : _tinggiPemutar) + _tinggiNav;
+        final tinggiPanel = (item == null ? 0 : _tinggiPemutar + _jarakPanel) + _tinggiNav;
 
         return RuangBawah(
           tinggi: tinggiPanel + marginBawah + 8,
           child: Scaffold(
             extendBody: true,
-            body: IndexedStack(
-              index: _tab,
+            body: Stack(
               children: [
-                HomeScreen(
-                  onPlay: _putar,
-                  onGoSearch: _goSearch,
-                  onGoLibrary: () => setState(() => _tab = 2),
-                  onGoDownloads: () => setState(() => _tab = 3),
-                  onTempelTautan: _tempelTautan,
-                ),
-                SearchScreen(
-                  onPlay: _putar,
-                  onDownload: _unduh,
-                  permintaanLuar: _permintaanCari,
-                ),
-                LibraryScreen(
-                  onGoSearch: _goSearch,
-                  onPlay: _putar,
-                  onPlayAcak: _putarAcak,
-                ),
-                DownloadsScreen(onGoSearch: _goSearch),
+                // Latar digambar SEKALI di sini, dipakai bareng semua tab.
+                Positioned.fill(child: LatarSampul(sampul: item?.artUri?.toString())),
+                Positioned.fill(child: _isiTab()),
               ],
             ),
             bottomNavigationBar: Padding(
               padding: EdgeInsets.fromLTRB(12, 0, 12, marginBawah),
-              child: GlassSurface(
-                radius: 26,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (item != null)
-                      _BarPemutar(player: _player, item: item, onTap: _bukaSedangDiputar),
-                    BottomNav(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (item != null) ...[
+                    GlassSurface(
+                      radius: _tinggiPemutar / 2,
+                      child: _BarPemutar(player: _player, item: item, onTap: _bukaSedangDiputar),
+                    ),
+                    const SizedBox(height: _jarakPanel),
+                  ],
+                  GlassSurface(
+                    radius: _tinggiNav / 2,
+                    width: lebarNav,
+                    height: _tinggiNav,
+                    child: BottomNav(
                       index: _tab,
                       onPilih: (i) => setState(() => _tab = i),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _isiTab() {
+    return IndexedStack(
+      index: _tab,
+      children: [
+        HomeScreen(
+          onPlay: _putar,
+          onGoSearch: _goSearch,
+          onGoLibrary: () => setState(() => _tab = 2),
+          onGoDownloads: () => setState(() => _tab = 3),
+          // Kolom "Cari atau tempel tautan" di Beranda: teks apa pun
+          // (kata kunci atau tautan) diteruskan ke layar Cari.
+          onTempelTautan: _tempelTautan,
+        ),
+        SearchScreen(
+          onPlay: _putar,
+          onDownload: _unduh,
+          permintaanLuar: _permintaanCari,
+        ),
+        LibraryScreen(
+          onGoSearch: _goSearch,
+          onPlay: _putar,
+          onPlayAcak: _putarAcak,
+        ),
+        DownloadsScreen(onGoSearch: _goSearch),
+      ],
     );
   }
 }
@@ -196,7 +236,7 @@ class _BarPemutar extends StatelessWidget {
             state?.processingState == AudioProcessingState.buffering;
 
         return StreamBuilder<Duration>(
-          stream: player.positionStream,
+          stream: player.positionStreamLambat,
           builder: (context, snapPos) {
             final total = item.duration?.inMilliseconds ?? 0;
             final posisi = snapPos.data?.inMilliseconds ?? 0;

@@ -48,6 +48,17 @@ jobs:
 
       - run: flutter test
 
+      - name: Tulis config akun (opsional)
+        env:
+          CLOUD_CONFIG_JSON: ${{ secrets.CLOUD_CONFIG_JSON }}
+        run: |
+          mkdir -p assets/cloud
+          if [ -n "$CLOUD_CONFIG_JSON" ]; then
+            printf '%s' "$CLOUD_CONFIG_JSON" > assets/cloud/config.json
+          else
+            echo "::warning::CLOUD_CONFIG_JSON kosong, login Google nonaktif di build ini."
+          fi
+
       - name: Siapkan kunci tanda tangan
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -56,8 +67,14 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::Secret KEYSTORE_BASE64 belum diisi. Lihat README bagian Rilis."
-            exit 1
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+              echo "::error::Secret KEYSTORE_BASE64 belum diisi. Lihat README bagian Rilis."
+              exit 1
+            fi
+            # Build uji manual: boleh jalan tanpa kunci rilis (jatuh ke kunci
+            # debug). APK-nya TIDAK bisa menimpa app yang ditandatangani kunci lain.
+            echo "::warning::KEYSTORE_BASE64 kosong, APK uji ini pakai kunci debug."
+            exit 0
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > android/mull.jks
           cat > android/key.properties <<EOF
@@ -87,6 +104,22 @@ jobs:
         with:
           name: apk
           path: |
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/flutter-apk/*.sha256
+
+      # Jalan manual (tombol Run workflow, bisa dari HP): APK-nya dipajang di
+      # rilis "pra-rilis" supaya bisa diunduh langsung dari halaman Releases.
+      # Pra-rilis nggak dihitung sebagai "latest", jadi pengecek update di app
+      # nggak ikut menangkapnya.
+      - name: Terbitkan APK uji
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: uji-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: APK uji ${{ github.run_number }} (${{ github.ref_name }})
+          prerelease: true
+          files: |
             build/app/outputs/flutter-apk/*.apk
             build/app/outputs/flutter-apk/*.sha256
 

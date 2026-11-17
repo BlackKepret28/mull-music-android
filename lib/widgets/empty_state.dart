@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// Tampilan "belum ada apa-apa". Dipakai di Pustaka, Unduhan, dan Cari.
+import '../theme.dart';
+
+/// Tampilan "belum ada apa-apa" ala MSA: ikon di kotak pastel, judul tebal,
+/// satu kalimat ramah. Dipakai di Pustaka, Unduhan, dan Cari.
 class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,
@@ -17,39 +20,36 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final c = context.mull;
 
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.10),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: cs.primary, size: 28),
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(color: c.accentSoft, borderRadius: BorderRadius.circular(24)),
+              child: Icon(icon, color: c.accentStrong, size: 34),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             if (message != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 message!,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,
+                style: TextStyle(fontSize: 14, height: 1.45, color: c.textMuted),
               ),
             ],
             if (action != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: 18),
               action!,
             ],
           ],

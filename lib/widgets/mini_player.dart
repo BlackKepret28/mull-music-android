@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/track.dart';
+import '../theme.dart';
 import 'artwork.dart';
+import 'mull_ui.dart';
 
-/// Bar pemutar mini yang nempel di atas navigasi bawah.
+/// Isi kapsul pemutar mini yang melayang di atas navigasi bawah.
+/// Panel kacanya dipasang di [AppShell].
 ///
 /// Widget ini cuma menampilkan; semua keadaan datang dari luar supaya gampang
 /// dites dan nanti disambung ke just_audio/audio_service.
@@ -22,7 +25,7 @@ class MiniPlayer extends StatelessWidget {
   final Track track;
   final bool playing;
 
-  /// 0..1. Dipakai buat garis tipis di bawah bar.
+  /// 0..1. Dipakai buat garis tipis di bawah kapsul.
   final double progress;
 
   /// Lagi nyiapin stream (yt-dlp butuh beberapa detik karena QuickJS lambat).
@@ -34,21 +37,20 @@ class MiniPlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final c = context.mull;
 
     return Material(
-      color: cs.surfaceContainer,
+      type: MaterialType.transparency,
       child: InkWell(
         onTap: onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
             SizedBox(
-              height: 60,
+              height: 64,
               child: Row(
                 children: [
-                  const SizedBox(width: 8),
-                  Artwork(url: track.thumbUrl, size: 44, radius: 6, isVideo: track.isVideo),
+                  const SizedBox(width: 10),
+                  Artwork(url: track.thumbUrl, size: 44, radius: 12, isVideo: track.isVideo),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -59,7 +61,7 @@ class MiniPlayer extends StatelessWidget {
                           track.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                         ),
                         if (track.artist != null) ...[
                           const SizedBox(height: 2),
@@ -67,39 +69,50 @@ class MiniPlayer extends StatelessWidget {
                             buffering ? 'Menyiapkan...' : track.artist!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant),
+                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: c.textMuted),
                           ),
                         ],
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: buffering ? null : onTogglePlay,
+                  const SizedBox(width: 8),
+                  TombolPutar(
+                    ikon: playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
                     tooltip: playing ? 'Jeda' : 'Putar',
-                    icon: buffering
+                    ukuran: 44,
+                    onPressed: buffering ? null : onTogglePlay,
+                    child: buffering
                         ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: cs.onSurfaceVariant),
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: c.onAccent),
                           )
-                        : Icon(playing ? Icons.pause : Icons.play_arrow, size: 28),
+                        : null,
                   ),
                   if (onNext != null)
                     IconButton(
                       onPressed: onNext,
                       tooltip: 'Lagu berikutnya',
-                      icon: const Icon(Icons.skip_next, size: 26),
-                    ),
-                  const SizedBox(width: 4),
+                      icon: Icon(Icons.skip_next_rounded, size: 28, color: c.icon),
+                    )
+                  else
+                    const SizedBox(width: 10),
                 ],
               ),
             ),
-            SizedBox(
-              height: 2,
-              child: LinearProgressIndicator(
-                value: progress.clamp(0, 1),
-                backgroundColor: cs.outlineVariant,
-                color: cs.primary,
+            // Garis progres tipis di dasar kapsul, menjorok dari sudutnya.
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: 0,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: progress.clamp(0, 1),
+                  minHeight: 2.5,
+                  backgroundColor: c.track,
+                  color: c.accent,
+                ),
               ),
             ),
           ],

@@ -13,7 +13,12 @@ class Track {
     this.webpageUrl,
     this.localPath,
     this.isVideo = false,
+    this.iid,
   });
+
+  /// Id item di playlist (sama dengan `iid` versi Windows). Dipakai sinkron
+  /// akun supaya item yang sama di HP dan laptop dikenali sebagai satu item.
+  final String? iid;
 
   /// Id sumber. Buat YouTube ini id video (11 karakter).
   final String id;
@@ -43,6 +48,7 @@ class Track {
     String? webpageUrl,
     String? localPath,
     bool? isVideo,
+    String? iid,
   }) {
     return Track(
       id: id,
@@ -53,6 +59,7 @@ class Track {
       webpageUrl: webpageUrl ?? this.webpageUrl,
       localPath: localPath ?? this.localPath,
       isVideo: isVideo ?? this.isVideo,
+      iid: iid ?? this.iid,
     );
   }
 
@@ -90,6 +97,7 @@ class Track {
         if (webpageUrl != null) 'url': webpageUrl,
         if (localPath != null) 'path': localPath,
         if (isVideo) 'video': true,
+        if (iid != null) 'iid': iid,
       };
 
   factory Track.fromJson(Map<String, dynamic> j) {
@@ -103,6 +111,7 @@ class Track {
       webpageUrl: j['url'] as String?,
       localPath: j['path'] as String?,
       isVideo: j['video'] == true,
+      iid: j['iid'] as String?,
     );
   }
 

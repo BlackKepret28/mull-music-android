@@ -8,10 +8,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AppSettings extends ChangeNotifier {
   AppSettings({this._prefs});
 
-  static const _kTema = 'themeMode';
   static const _kKaca = 'glass';
   static const _kFormatAudio = 'audioFormat';
   static const _kUpdateTerakhir = 'ytdlpUpdatedAt';
+  static const _kCekUpdate = 'checkAppUpdate';
+  static const _kCekUpdateTerakhir = 'appUpdateCheckedAt';
 
   final SharedPreferences? _prefs;
 
@@ -19,27 +20,10 @@ class AppSettings extends ChangeNotifier {
   static Future<AppSettings> muat() async {
     final prefs = await SharedPreferences.getInstance();
     final s = AppSettings(prefs: prefs);
-    s._themeMode = switch (prefs.getString(_kTema)) {
-      'light' => ThemeMode.light,
-      'dark' => ThemeMode.dark,
-      _ => ThemeMode.system,
-    };
     s._glass = prefs.getBool(_kKaca) ?? true;
     s._formatAudio = prefs.getString(_kFormatAudio) ?? 'm4a';
+    s._cekUpdate = prefs.getBool(_kCekUpdate) ?? true;
     return s;
-  }
-
-  ThemeMode _themeMode = ThemeMode.system;
-  ThemeMode get themeMode => _themeMode;
-  set themeMode(ThemeMode v) {
-    if (v == _themeMode) return;
-    _themeMode = v;
-    _prefs?.setString(_kTema, switch (v) {
-      ThemeMode.light => 'light',
-      ThemeMode.dark => 'dark',
-      ThemeMode.system => 'system',
-    });
-    notifyListeners();
   }
 
   /// Efek kaca di bar bawah. Bisa dimatikan buat HP lemah.
@@ -60,6 +44,28 @@ class AppSettings extends ChangeNotifier {
     _formatAudio = v;
     _prefs?.setString(_kFormatAudio, v);
     notifyListeners();
+  }
+
+  /// Cek versi baru Mull di GitHub waktu app dibuka (paling sering sehari sekali).
+  bool _cekUpdate = true;
+  bool get cekUpdate => _cekUpdate;
+  set cekUpdate(bool v) {
+    if (v == _cekUpdate) return;
+    _cekUpdate = v;
+    _prefs?.setBool(_kCekUpdate, v);
+    notifyListeners();
+  }
+
+  /// Sudah waktunya cek update otomatis lagi? Sekalian dicatat waktunya.
+  bool waktunyaCekUpdate() {
+    if (!_cekUpdate) return false;
+    final ms = _prefs?.getInt(_kCekUpdateTerakhir);
+    final sekarang = DateTime.now();
+    if (ms != null && sekarang.difference(DateTime.fromMillisecondsSinceEpoch(ms)) < const Duration(hours: 20)) {
+      return false;
+    }
+    _prefs?.setInt(_kCekUpdateTerakhir, sekarang.millisecondsSinceEpoch);
+    return true;
   }
 
   /// Kapan yt-dlp terakhir diperbarui, buat jadwal perbarui mingguan.

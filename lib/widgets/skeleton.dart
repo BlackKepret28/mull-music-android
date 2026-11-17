@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme.dart';
+
 /// Kotak abu-abu yang berdenyut pelan, buat mengisi tempat selagi data datang.
 ///
 /// Dipakai daripada satu lingkaran berputar di tengah layar: bentuk daftarnya
@@ -29,7 +31,9 @@ class SkeletonBox extends StatelessWidget {
         decoration: BoxDecoration(
           color: cs.onSurface.withValues(alpha: 0.08),
           shape: shape,
-          borderRadius: shape == BoxShape.circle ? null : BorderRadius.circular(radius),
+          borderRadius: shape == BoxShape.circle
+              ? null
+              : BorderRadius.circular(radius),
         ),
       ),
     );
@@ -62,9 +66,10 @@ class _DenyutState extends State<_Denyut> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: Tween<double>(begin: 0.45, end: 1).animate(
-        CurvedAnimation(parent: _c, curve: Curves.easeInOut),
-      ),
+      opacity: Tween<double>(
+        begin: 0.45,
+        end: 1,
+      ).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut)),
       child: widget.child,
     );
   }
@@ -87,11 +92,19 @@ class SkeletonTrackList extends StatelessWidget {
         // Lebar judul dibikin beda-beda biar nggak kelihatan seperti tabel.
         final lebarJudul = [0.82, 0.64, 0.74, 0.58][i % 4];
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        // Bentuknya sama dengan kartu TrackTile, jadi pas data datang nggak loncat.
+        final c = context.mull;
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: c.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: c.border),
+          ),
           child: Row(
             children: [
-              const SkeletonBox(width: 48, height: 48, radius: 6),
+              const SkeletonBox(width: 48, height: 48, radius: 12),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

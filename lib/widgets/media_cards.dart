@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../models/track.dart';
 import '../services/playlist_service.dart';
+import '../theme.dart';
 import 'artwork.dart';
+import 'mull_ui.dart';
+import 'sampul_playlist.dart';
 
 /// Kartu video 16:9 dengan badge durasi di pojok.
 ///
@@ -21,38 +24,24 @@ class VideoCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(MullUkuran.sampul),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Stack(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(MullUkuran.sampul),
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
-                  child: track.thumbUrl == null || track.thumbUrl!.isEmpty
-                      ? ColoredBox(
-                          color: cs.surfaceContainer,
-                          child: Icon(
-                            Icons.movie_rounded,
-                            color: cs.onSurfaceVariant,
-                            size: 26,
-                          ),
-                        )
-                      : Image.network(
-                          track.thumbUrl!,
-                          fit: BoxFit.cover,
-                          gaplessPlayback: true,
-                          errorBuilder: (_, _, _) => ColoredBox(
-                            color: cs.surfaceContainer,
-                            child: Icon(
-                              Icons.movie_rounded,
-                              color: cs.onSurfaceVariant,
-                              size: 26,
-                            ),
-                          ),
-                        ),
+                  // Sampul YouTube atau cuplikan berkas video di HP.
+                  child: GambarSampul(
+                    url: track.thumbUrl,
+                    cadangan: ColoredBox(
+                      color: cs.surfaceContainer,
+                      child: Icon(Icons.movie_rounded, color: cs.onSurfaceVariant, size: 26),
+                    ),
+                  ),
                 ),
               ),
               if (track.duration != null)
@@ -102,8 +91,8 @@ class VideoCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
                     height: 1.25,
                   ),
                 ),
@@ -138,46 +127,22 @@ class PlaylistCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    final sampul = playlist.lagu
-        .map((t) => t.thumbUrl)
-        .where((u) => u != null && u.isNotEmpty)
-        .cast<String>()
-        .take(4)
-        .toList();
-
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(MullUkuran.sampul),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AspectRatio(
             aspectRatio: 1,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: switch (sampul.length) {
-                0 => ColoredBox(
-                    color: cs.primary.withValues(alpha: 0.12),
-                    child: Icon(Icons.queue_music_rounded, color: cs.primary, size: 30),
-                  ),
-                1 || 2 || 3 => Artwork(url: sampul.first, size: double.infinity, radius: 0),
-                _ => GridView.count(
-                    crossAxisCount: 2,
-                    padding: EdgeInsets.zero,
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: [
-                      for (final u in sampul) Artwork(url: u, size: double.infinity, radius: 0),
-                    ],
-                  ),
-              },
-            ),
+            child: SampulPlaylist(playlist: playlist),
           ),
           const SizedBox(height: 8),
           Text(
             playlist.nama,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
           Text(
@@ -190,11 +155,22 @@ class PlaylistCard extends StatelessWidget {
   }
 }
 
-/// Kartu "bikin playlist baru", bentuknya sama dengan [PlaylistCard].
+/// Kartu aksi (bikin playlist baru, impor), bentuknya sama dengan [PlaylistCard].
 class PlaylistCardBaru extends StatelessWidget {
-  const PlaylistCardBaru({super.key, this.onTap});
+  const PlaylistCardBaru({
+    super.key,
+    this.onTap,
+    this.judul = 'Playlist baru',
+    this.keterangan = 'Kumpulkan lagu',
+    this.ikon = Icons.add_rounded,
+    this.nada = NadaIkon.aksen,
+  });
 
   final VoidCallback? onTap;
+  final String judul;
+  final String keterangan;
+  final IconData ikon;
+  final NadaIkon nada;
 
   @override
   Widget build(BuildContext context) {
@@ -202,30 +178,32 @@ class PlaylistCardBaru extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(MullUkuran.sampul),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AspectRatio(
             aspectRatio: 1,
+            // Kartu kosong ala MSA: isi kartu + garis tipis + ikon di kotak aksen.
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: cs.outlineVariant, width: 1.5),
+                color: context.mull.surface,
+                borderRadius: BorderRadius.circular(MullUkuran.sampul),
+                border: Border.all(color: context.mull.border),
               ),
-              child: Icon(Icons.add_rounded, color: cs.primary, size: 30),
+              child: Center(child: KotakIkon(ikon: ikon, nada: nada, ukuran: 48)),
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Playlist baru',
+          Text(
+            judul,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
           Text(
-            'Kumpulkan lagu',
+            keterangan,
             style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
           ),
         ],

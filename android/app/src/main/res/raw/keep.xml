@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ikon notifikasi pemutar dipanggil lewat nama (string dari kode Dart),
+     jadi penyusut resource R8 nggak melihatnya dipakai. Tanpa ini ikonnya
+     bisa terbuang di APK rilis. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_mull" />

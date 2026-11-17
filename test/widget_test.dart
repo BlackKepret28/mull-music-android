@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mullmusic/app.dart';
+import 'package:mullmusic/screens/home_screen.dart';
 import 'package:mullmusic/widgets/bottom_nav.dart';
 
 void main() {
@@ -26,10 +27,12 @@ void main() {
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
   /// "Pustaka" dan "Cari lagu" juga muncul di petak akses cepat Beranda,
-  /// jadi tombol navigasinya harus dicari di dalam [BottomNav].
+  /// jadi tombol navigasinya harus dicari di dalam [BottomNav]. Label tab
+  /// yang nggak aktif disembunyikan (cuma ikon, ala MSA), jadi dicari lewat
+  /// tooltip-nya.
   Finder tombolNav(String label) => find.descendant(
         of: find.byType(BottomNav),
-        matching: find.text(label),
+        matching: find.byTooltip(label),
       );
 
   testWidgets('Kerangka: empat tab tampil, Beranda yang kebuka duluan', (tester) async {
@@ -45,12 +48,27 @@ void main() {
     expect(find.text('Mulai dari sini'), findsOneWidget);
   });
 
-  testWidgets('Beranda punya salam dan kartu tempel tautan', (tester) async {
+  testWidgets('Beranda punya tanggal, salam, dan kolom cari atau tempel tautan', (tester) async {
     await tester.pumpWidget(const MullApp());
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Selamat '), findsOneWidget);
-    expect(find.text('Putar dari tautan'), findsOneWidget);
+    expect(find.text(HomeScreen.tanggal()), findsOneWidget);
+    expect(find.text('Cari atau tempel tautan'), findsOneWidget);
+    expect(find.byTooltip('Tempel tautan'), findsOneWidget);
+  });
+
+  testWidgets('Kolom cari Beranda meneruskan kata kunci ke tab Cari', (tester) async {
+    await tester.pumpWidget(const MullApp());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'kevin macleod');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pump();
+
+    // Tab Cari kebuka dan teksnya sudah dipindah ke kolom cari di sana.
+    expect(find.descendant(of: find.byType(BottomNav), matching: find.text('Cari')), findsOneWidget);
+    expect(find.text('kevin macleod'), findsOneWidget);
   });
 
   testWidgets('Tombol "Cari lagu" di sambutan pindah ke tab Cari', (tester) async {

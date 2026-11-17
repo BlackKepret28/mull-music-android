@@ -53,8 +53,9 @@ class LyricsService {
 
   final _memori = <String, Lirik?>{};
 
-  /// Null berarti memang nggak ketemu liriknya.
-  Future<Lirik?> untuk(Track t) async {
+  /// Null berarti memang nggak ketemu liriknya. [simpan] false: hasilnya
+  /// nggak ditulis ke disk (dipakai Kenali lagu buat ngecek banyak hasil cari).
+  Future<Lirik?> untuk(Track t, {bool simpan = true}) async {
     if (_memori.containsKey(t.id)) return _memori[t.id];
 
     final dariDisk = await _bacaDisk(t.id);
@@ -82,7 +83,7 @@ class LyricsService {
       final hasil = await _coba(ep, params, detik);
       if (hasil != null) {
         _memori[t.id] = hasil;
-        await _tulisDisk(t.id, hasil);
+        if (simpan) await _tulisDisk(t.id, hasil);
         return hasil;
       }
     }
