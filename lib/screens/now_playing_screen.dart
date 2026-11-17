@@ -1,11 +1,17 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 
+import '../aksi.dart';
 import '../models/track.dart';
+import '../services/download_service.dart';
+import '../services/library_service.dart';
 import '../services/player_service.dart';
 import '../widgets/artwork.dart';
 import '../widgets/lyrics_view.dart';
+import '../theme.dart';
 import '../widgets/mull_ui.dart';
+import 'finder_screen.dart';
+import 'playlist_screen.dart';
 
 /// Layar Sedang diputar, muncul dari bawah waktu bar pemutar mini diketuk.
 class NowPlayingScreen extends StatefulWidget {
@@ -18,6 +24,145 @@ class NowPlayingScreen extends StatefulWidget {
 class _NowPlayingScreenState extends State<NowPlayingScreen> {
   final _player = MullAudioHandler.instance;
   bool _lirik = false;
+
+  void _menu() {
+    final t = _player.current;
+    tampilkanLembar<void>(
+      context,
+      judul: t?.title ?? 'Sedang diputar',
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (t != null)
+            BarisMenu(
+              ikon: Icons.playlist_add_rounded,
+              label: 'Tambah ke playlist',
+              onTap: () {
+                Navigator.pop(ctx);
+                tampilkanTambahKePlaylist(context, t);
+              },
+            ),
+          if (t != null)
+            BarisMenu(
+              ikon: Icons.graphic_eq_rounded,
+              label: 'Kenali lagu di bagian ini',
+              nada: NadaIkon.peach,
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => FinderScreen(berkas: t, di: _player.position),
+                ));
+              },
+            ),
+          ValueListenableBuilder<DateTime?>(
+            valueListenable: _player.timerSampai,
+            builder: (_, sampai, _) => ValueListenableBuilder<bool>(
+              valueListenable: _player.jedaAkhirLagu,
+              builder: (_, akhir, _) => BarisMenu(
+                ikon: Icons.bedtime_rounded,
+                label: 'Timer tidur',
+                nada: NadaIkon.lavender,
+                keterangan: sampai != null
+                    ? 'Jeda jam ${_jam(sampai)}'
+                    : (akhir ? 'Jeda di akhir lagu ini' : null),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _timer();
+                },
+              ),
+            ),
+          ),
+          ValueListenableBuilder<double>(
+            valueListenable: _player.kecepatan,
+            builder: (_, v, _) => BarisMenu(
+              ikon: Icons.speed_rounded,
+              label: 'Kecepatan',
+              nada: NadaIkon.mint,
+              keterangan: _labelKecepatan(v),
+              onTap: () {
+                Navigator.pop(ctx);
+                _kecepatan();
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _jam(DateTime t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  static String _labelKecepatan(double v) {
+    if (v == 1) return 'Normal';
+    final s = v.toString().replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+    return '${s.replaceAll('.', ',')}x';
+  }
+
+  static String _labelMenit(int m) => m == 60 ? '1 jam' : '$m menit';
+
+  void _timer() {
+    final aktif = _player.timerSampai.value != null || _player.jedaAkhirLagu.value;
+    tampilkanLembar<void>(
+      context,
+      judul: 'Timer tidur',
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final m in const [15, 30, 45, 60])
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 22),
+              title: Text(_labelMenit(m)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _player.aturTimer(Duration(minutes: m));
+                kabari(context, 'Pemutaran dijeda ${_labelMenit(m)} lagi.');
+              },
+            ),
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 22),
+            title: const Text('Akhir lagu ini'),
+            onTap: () {
+              Navigator.pop(ctx);
+              _player.aturTimer(null, akhirLagu: true);
+              kabari(context, 'Pemutaran dijeda waktu lagu ini selesai.');
+            },
+          ),
+          if (aktif)
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 22),
+              title: Text('Matikan timer', style: TextStyle(color: ctx.mull.danger)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _player.aturTimer(null);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _kecepatan() {
+    tampilkanLembar<void>(
+      context,
+      judul: 'Kecepatan',
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final v in const [0.5, 0.75, 1.0, 1.25, 1.5, 2.0])
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 22),
+              title: Text(_labelKecepatan(v)),
+              trailing: _player.kecepatan.value == v ? Icon(Icons.check_rounded, color: ctx.mull.accent) : null,
+              onTap: () {
+                Navigator.pop(ctx);
+                _player.aturKecepatan(v);
+              },
+            ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +197,14 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                 tooltip: _lirik ? 'Tampilkan sampul' : 'Tampilkan lirik',
                 kaca: true,
                 onPressed: () => setState(() => _lirik = !_lirik),
+              ),
+              const SizedBox(width: 8),
+              _TombolUnduh(player: _player),
+              TombolIkon(
+                ikon: Icons.more_vert_rounded,
+                tooltip: 'Opsi lain',
+                kaca: true,
+                onPressed: item == null ? null : _menu,
               ),
               const SizedBox(width: 16),
             ],
@@ -290,16 +443,28 @@ class _Kontrol extends StatelessWidget {
         final sibuk = state?.processingState == AudioProcessingState.loading ||
             state?.processingState == AudioProcessingState.buffering;
 
+        final acak = state?.shuffleMode == AudioServiceShuffleMode.all;
+        final ulang = state?.repeatMode ?? AudioServiceRepeatMode.none;
+        final aktif = cs.primary;
+        final pasif = cs.onSurfaceVariant;
+
         return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            IconButton(
+              tooltip: acak ? 'Matikan acak' : 'Acak',
+              onPressed: () => player.setShuffleMode(
+                acak ? AudioServiceShuffleMode.none : AudioServiceShuffleMode.all,
+              ),
+              icon: Icon(Icons.shuffle_rounded, color: acak ? aktif : pasif),
+            ),
             IconButton(
               iconSize: 36,
               tooltip: 'Sebelumnya',
               onPressed: player.skipToPrevious,
               icon: const Icon(Icons.skip_previous_rounded),
             ),
-            const SizedBox(width: 20),
+            const SizedBox(width: 8),
             TombolPutar(
               ikon: main ? Icons.pause_rounded : Icons.play_arrow_rounded,
               tooltip: main ? 'Jeda' : 'Putar',
@@ -313,14 +478,76 @@ class _Kontrol extends StatelessWidget {
                     )
                   : null,
             ),
-            const SizedBox(width: 20),
+            const SizedBox(width: 8),
             IconButton(
               iconSize: 36,
               tooltip: 'Berikutnya',
               onPressed: player.skipToNext,
               icon: const Icon(Icons.skip_next_rounded),
             ),
+            IconButton(
+              tooltip: switch (ulang) {
+                AudioServiceRepeatMode.none => 'Ulangi semua',
+                AudioServiceRepeatMode.one => 'Matikan ulangi',
+                _ => 'Ulangi lagu ini',
+              },
+              onPressed: () => player.setRepeatMode(switch (ulang) {
+                AudioServiceRepeatMode.none => AudioServiceRepeatMode.all,
+                AudioServiceRepeatMode.one => AudioServiceRepeatMode.none,
+                _ => AudioServiceRepeatMode.one,
+              }),
+              icon: Icon(
+                ulang == AudioServiceRepeatMode.one ? Icons.repeat_one_rounded : Icons.repeat_rounded,
+                color: ulang == AudioServiceRepeatMode.none ? pasif : aktif,
+              ),
+            ),
           ],
+        );
+      },
+    );
+  }
+}
+
+
+/// Tombol unduh di pojok atas layar Sedang diputar. Cuma muncul kalau
+/// lagunya belum ada di HP; selama diunduh jadi indikator muat.
+/// (Induknya sudah dibangun ulang tiap lagu ganti, jadi `player.current`
+/// selalu lagu yang tampil.)
+class _TombolUnduh extends StatelessWidget {
+  const _TombolUnduh({required this.player});
+
+  final MullAudioHandler player;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([DownloadService.instance, LibraryService.instance]),
+      builder: (context, _) {
+        final t = player.current;
+        if (t == null) return const SizedBox.shrink();
+
+        final unduhan = DownloadService.instance.antrean.where((u) => !u.video && u.track.id == t.id);
+        final sudah = t.isDownloaded ||
+            LibraryService.instance.lagu.any((e) => e.localPath != null && e.id == t.id) ||
+            unduhan.any((u) => u.status == StatusUnduhan.selesai);
+        if (sudah) return const SizedBox.shrink();
+
+        final proses = unduhan.any((u) => u.bisaDibatalkan);
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: TombolIkon(
+            ikon: Icons.download_rounded,
+            tooltip: proses ? 'Sedang diunduh' : 'Unduh lagu',
+            kaca: true,
+            onPressed: proses ? null : () => unduhLagu(context, t),
+            child: proses
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  )
+                : null,
+          ),
         );
       },
     );

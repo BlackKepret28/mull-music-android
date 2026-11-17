@@ -17,13 +17,37 @@ Statusnya masih dalam pengembangan dan belum pernah dirilis.
   ke `Music/Mull` dan `Movies/Mull`, jadi kebaca aplikasi musik dan galeri
   lain, dan nggak ikut terhapus waktu Mull dicopot.
 - **Pustaka** berisi berkas yang sudah ada di HP, bisa diputar tanpa internet.
-- **Playlist** buatan sendiri, disimpan lokal.
-- **Tema terang dan gelap** dengan gaya yang sama seperti app MSA: kartu
+  Titik tiga di tiap lagu: putar berikutnya, tambah ke antrean, tambah ke
+  playlist, kenali lagunya, atau hapus dari HP. Lagu yang bukan hasil unduhan
+  Mull juga bisa dihapus; Android bakal minta konfirmasi dulu lewat dialognya
+  sendiri.
+- **Playlist** buatan sendiri, disimpan lokal. Bisa diacak, dan dibagikan
+  sebagai kode playlist Mull (formatnya sama dengan versi Windows, jadi kode
+  dari laptop bisa ditempel di HP dan sebaliknya) atau daftar lagu biasa.
+- **Impor playlist** dari tautan YouTube Music, YouTube, atau Spotify
+  (playlist atau album publik, maksimal 100 lagu pertama lewat tautan), daftar
+  tautan lagu Spotify, teks "Judul - Artis" per baris, atau kode playlist
+  Mull. Lagu Spotify dan teks dicarikan pasangannya di YouTube; yang kurang
+  yakin ditandai dan bisa dibatalkan. Bisa jadi playlist baru atau masuk ke
+  playlist yang sudah ada, sekalian diunduh kalau mau. Tautan playlist yang
+  ditempel di Beranda langsung dibuka di layar Impor.
+- **Kenali lagu** (mirip Shazam) dari mikrofon, tautan (YouTube, TikTok,
+  Reels, dan situs lain yang didukung yt-dlp), lagu di Pustaka, atau bagian
+  lagu yang lagi diputar. Mencoba mencocokkan di detik 4, 8, dan 12. Yang
+  dikirim ke server cuma sidik jari suaranya, bukan rekamannya. Ada juga cari
+  dari potongan lirik, dan daftar "Pernah dikenali" (juga muncul di Beranda).
+- **Pemutar**: acak, ulangi (semua atau satu lagu), timer tidur (15 menit
+  sampai 1 jam, atau akhir lagu ini), dan kecepatan 0,5x sampai 2x.
+- **Update dari dalam app**: Pengaturan > Cek update membaca rilis terbaru di
+  GitHub, mengunduh APK yang cocok dengan HP, mengecek SHA-256-nya, lalu
+  membuka penginstal Android. Bisa cek otomatis sekali sehari (kartu kecil
+  muncul di Beranda kalau ada versi baru).
+- **Tema gelap** dengan gaya yang sama seperti app MSA: kartu
   bersudut bulat di atas latar pastel lembut (ikut warna sampul lagu yang
   diputar), plus panel kaca melayang yang bisa dimatikan.
 
-Belum ada: Kenali lagu, impor dari Spotify, akun, dan sinkron dengan versi
-Windows.
+Belum ada: akun, sinkron dengan versi Windows, equalizer, subtitle, dan
+radio otomatis.
 
 ## Pasang
 
@@ -74,6 +98,8 @@ flutter test
 | Video hasil unduhan | `Movies/Mull` (lewat MediaStore) |
 | Lirik tersimpan | folder data aplikasi, `lirik/<id>.lrc` |
 | Playlist | folder data aplikasi, `playlists.json` |
+| Lagu yang pernah dikenali | folder data aplikasi, `finds.json` (maks 200) |
+| APK update yang diunduh | cache aplikasi, `update/` (ditimpa tiap unduh) |
 | Pengaturan | penyimpanan pengaturan Android |
 
 Berkas lagu dan video sengaja ditaruh di penyimpanan bersama supaya tetap ada
@@ -128,6 +154,14 @@ Untuk mengubah `mull.jks` jadi base64 di PowerShell:
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("mull.jks")) | Set-Clipboard
 ```
 
+**Penting buat update dari dalam app:** Android cuma mau memasang update
+yang ditandatangani kunci yang sama dengan APK yang sudah terpasang. APK
+yang dibangun di laptop tanpa `key.properties` pakai kunci debug, jadi nggak
+bisa di-update ke APK rilis GitHub. Copot dulu sekali, pasang APK dari
+halaman rilis, dan setelah itu update dari dalam app jalan terus. Naikkan
+juga `version:` di `pubspec.yaml` tiap rilis (angka di belakang `+` juga),
+karena Android menolak versionCode yang nggak lebih besar.
+
 Kalau mau menandatangani dari laptop sendiri, bikin `android/key.properties`
 (sudah masuk `.gitignore`) berisi `storeFile`, `storePassword`, `keyAlias`,
 dan `keyPassword`. Tanpa berkas itu, build rilis memakai kunci debug supaya
@@ -145,10 +179,14 @@ Aplikasi ini memakai komponen pihak ketiga berikut:
 | [youtubedl-android](https://github.com/JunkFood02/youtubedl-android) | GPL-3.0 |
 | [FFmpeg](https://ffmpeg.org) | sesuai build yang dipakai youtubedl-android |
 | [QuickJS](https://bellard.org/quickjs/) | MIT |
+| [SongRec](https://github.com/marin-m/SongRec) (algoritma sidik jari Kenali lagu, diport ke Dart di `lib/services/shazam_signature.dart`) | GPL-3.0 |
 | [Plus Jakarta Sans](https://github.com/tokotype/PlusJakartaSans) (font) | SIL OFL 1.1, lihat `assets/fonts/OFL.txt` |
 | [Flutter](https://flutter.dev) dan paket pub.dev | lihat `pubspec.lock` |
 
 Lirik berasal dari [LRCLIB](https://lrclib.net), basis data lirik terbuka.
+Kenali lagu memakai server Shazam (API tidak resmi yang sama dengan
+ShazamIO/SongRec dan versi Windows), jadi bisa berhenti jalan kapan saja
+kalau Shazam mengubahnya.
 
 Mull cuma alat. Unduh dan simpan konten yang memang boleh kamu simpan, dan
 hormati hak cipta serta ketentuan layanan sumbernya.

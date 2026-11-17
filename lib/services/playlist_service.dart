@@ -15,7 +15,13 @@ class Playlist {
     required this.dibuat,
     required this.diubah,
     required this.lagu,
-  });
+    List<Map<String, dynamic>>? asing,
+  }) : asing = asing ?? [];
+
+  /// Item dari Mull di laptop yang nggak bisa diputar di HP (berkas lokal
+  /// Windows). Nggak ditampilkan, tapi disimpan supaya nggak ikut terhapus
+  /// waktu HP mengirim balik playlist-nya ke akun.
+  final List<Map<String, dynamic>> asing;
 
   final String id;
   String nama;
@@ -34,6 +40,7 @@ class Playlist {
         'created': dibuat.millisecondsSinceEpoch ~/ 1000,
         'updated': diubah.millisecondsSinceEpoch ~/ 1000,
         'items': lagu.map((t) => t.toJson()).toList(),
+        if (asing.isNotEmpty) 'foreign': asing,
       };
 
   factory Playlist.fromJson(Map<String, dynamic> j) {
@@ -49,6 +56,10 @@ class Playlist {
       lagu: ((j['items'] as List?) ?? const [])
           .whereType<Map>()
           .map((e) => Track.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      asing: ((j['foreign'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
           .toList(),
     );
   }
@@ -76,6 +87,13 @@ class PlaylistService extends ChangeNotifier {
 
   Directory? _folderTes;
   List<Playlist> _daftar = [];
+
+  /// Id playlist yang dihapus di HP tapi belum dihapus di akun.
+  Set<String> _dihapus = {};
+  Set<String> get dihapus => Set.unmodifiable(_dihapus);
+
+  /// Dipanggil tiap isi playlist diubah pengguna (dipakai sinkron akun).
+  VoidCallback? onBerubah;
   bool _sudahMuat = false;
 
   List<Playlist> get daftar => List.unmodifiable(_daftar);
@@ -97,6 +115,10 @@ class PlaylistService extends ChangeNotifier {
             .whereType<Map>()
             .map((e) => Playlist.fromJson(Map<String, dynamic>.from(e)))
             .toList();
+        _dihapus = {
+          for (final x in (isi is Map ? isi['deleted'] as List? : null) ?? const [])
+            if (x is String) x,
+        };
         // Yang terakhir diubah di atas.
         _daftar.sort((a, b) => b.diubah.compareTo(a.diubah));
       }
@@ -109,16 +131,31 @@ class PlaylistService extends ChangeNotifier {
     }
   }
 
-  Future<void> _simpan() async {
+  Future<void> _simpan({bool kabari = true}) async {
     try {
       final f = await _berkas();
       await f.writeAsString(
-        jsonEncode({'playlists': _daftar.map((p) => p.toJson()).toList()}),
+        jsonEncode({
+          'playlists': _daftar.map((p) => p.toJson()).toList(),
+          if (_dihapus.isNotEmpty) 'deleted': _dihapus.toList(),
+        }),
       );
     } catch (_) {
       // Gagal nulis: isi di memori tetap benar sampai app ditutup.
     }
+    if (kabari) onBerubah?.call();
   }
+
+  /// Ganti semua playlist dengan hasil sinkron akun. Nggak memicu sinkron lagi.
+  Future<void> gantiSemua(List<Playlist> baru, {Set<String> sudahDihapus = const {}}) async {
+    _daftar = [...baru]..sort((a, b) => b.diubah.compareTo(a.diubah));
+    _dihapus = _dihapus.difference(sudahDihapus);
+    _sudahMuat = true;
+    notifyListeners();
+    await _simpan(kabari: false);
+  }
+
+  static String idItem() => _idBaru().substring(0, 10);
 
   static final _acak = Random();
   static String _idBaru() {
@@ -151,6 +188,7 @@ class PlaylistService extends ChangeNotifier {
 
   Future<void> hapus(Playlist p) async {
     _daftar.remove(p);
+    _dihapus.add(p.id);
     notifyListeners();
     await _simpan();
   }
@@ -162,7 +200,7 @@ class PlaylistService extends ChangeNotifier {
     for (final t in lagu) {
       if (p.lagu.length >= _maksItem) break;
       if (!punya.add(t.id)) continue;
-      p.lagu.add(t);
+      p.lagu.add(t.iid == null ? t.copyWith(iid: idItem()) : t);
       ditambah++;
     }
     if (ditambah > 0) {
@@ -176,6 +214,36 @@ class PlaylistService extends ChangeNotifier {
   Future<void> hapusLagu(Playlist p, Track t) async {
     p.lagu.removeWhere((e) => e.id == t.id);
     p.diubah = DateTime.now();
+    notifyListeners();
+    await _simpan();
+  }
+
+  /// Berkas lokal [uri] sudah dihapus dari HP. Lagu yang punya id YouTube
+  /// tetap disimpan (jadi diputar dari internet), sisanya dibuang dari
+  /// playlist karena sudah nggak bisa diputar.
+  Future<void> lepasBerkas(String uri) async {
+    var berubah = false;
+    for (final p in _daftar) {
+      for (var i = p.lagu.length - 1; i >= 0; i--) {
+        final t = p.lagu[i];
+        if (t.localPath != uri) continue;
+        berubah = true;
+        if (t.id == uri || t.id.startsWith('content://')) {
+          p.lagu.removeAt(i);
+        } else {
+          p.lagu[i] = Track(
+            id: t.id,
+            title: t.title,
+            artist: t.artist,
+            duration: t.duration,
+            webpageUrl: t.webpageUrl,
+            thumbUrl: 'https://i.ytimg.com/vi/${t.id}/hqdefault.jpg',
+            isVideo: t.isVideo,
+          );
+        }
+      }
+    }
+    if (!berubah) return;
     notifyListeners();
     await _simpan();
   }

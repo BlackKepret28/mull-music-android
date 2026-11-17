@@ -15,7 +15,11 @@ class TrackTile extends StatelessWidget {
     this.onTambahKePlaylist,
     this.onMenu,
     this.selected = false,
+    this.margin = const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
   });
+
+  /// Jarak luar kartu. Bawaannya 16 di kiri-kanan (buat daftar selebar layar).
+  final EdgeInsets margin;
 
   final Track track;
   final VoidCallback? onTap;
@@ -44,7 +48,7 @@ class TrackTile extends StatelessWidget {
     // sudut 18. Yang sedang diputar dapat garis aksen.
     final sudut = BorderRadius.circular(18);
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      margin: margin,
       decoration: BoxDecoration(
         color: selected
             ? Color.alphaBlend(c.accentSoft, c.surfaceSolid)

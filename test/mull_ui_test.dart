@@ -11,7 +11,7 @@ import 'package:mullmusic/widgets/mull_ui.dart';
 
 Widget _bungkus(Widget child, {AppSettings? settings, ThemeData? tema}) => SettingsScope(
       settings: settings ?? AppSettings(),
-      child: MaterialApp(theme: tema ?? MullTheme.light(), home: Scaffold(body: child)),
+      child: MaterialApp(theme: tema ?? MullTheme.dark(), home: Scaffold(body: child)),
     );
 
 void main() {
@@ -32,14 +32,13 @@ void main() {
 
   group('Tema', () {
     test('aksen tetap violet Mull, sisanya nilai MSA', () {
-      expect(MullColors.light.accent, const Color(0xFF6344FB));
       expect(MullColors.dark.accent, const Color(0xFF8B7CFF));
-      expect(MullColors.light.bg, const Color(0xFFF6F7FB));
+      expect(MullColors.dark.bg, const Color(0xFF0B0D12));
       expect(MullColors.dark.surfaceSolid, const Color(0xFF171B25));
     });
 
     test('font Plus Jakarta Sans dipasang di tema', () {
-      expect(MullTheme.light().textTheme.bodyMedium?.fontFamily, MullTheme.font);
+      expect(MullTheme.dark().textTheme.bodyMedium?.fontFamily, MullTheme.font);
     });
   });
 
@@ -71,7 +70,7 @@ void main() {
         find.descendant(of: find.byType(GlassSurface), matching: find.byType(Container)).first,
       );
       final hias = kotak.decoration! as BoxDecoration;
-      expect(hias.color, MullColors.light.surfaceSolid);
+      expect(hias.color, MullColors.dark.surfaceSolid);
       expect(hias.border, isNotNull);
       expect(hias.borderRadius, BorderRadius.circular(30));
     });

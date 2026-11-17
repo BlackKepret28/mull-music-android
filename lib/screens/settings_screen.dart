@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../dev/spike_page.dart';
+import '../services/update_service.dart';
 import '../services/ytdlp_service.dart';
 import '../settings.dart';
 import '../theme.dart';
 import '../widgets/mull_ui.dart';
+import '../widgets/update_ui.dart';
+import '../ytdlp.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -32,18 +35,6 @@ class SettingsScreen extends StatelessWidget {
                 const LabelBagian('Tampilan'),
                 _Kartu(
                   children: [
-                    RadioGroup<ThemeMode>(
-                      groupValue: s.themeMode,
-                      onChanged: (v) => s.themeMode = v ?? ThemeMode.system,
-                      child: const Column(
-                        children: [
-                          RadioListTile<ThemeMode>(value: ThemeMode.system, title: Text('Ikut sistem')),
-                          RadioListTile<ThemeMode>(value: ThemeMode.light, title: Text('Terang')),
-                          RadioListTile<ThemeMode>(value: ThemeMode.dark, title: Text('Gelap')),
-                        ],
-                      ),
-                    ),
-                    const Divider(indent: 16, endIndent: 16),
                     SwitchListTile(
                       value: s.glass,
                       onChanged: (v) => s.glass = v,
@@ -52,6 +43,9 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+                const _Jarak(),
+                const LabelBagian('Pemutar'),
+                const _Kartu(children: [_BarisNotifikasi()]),
                 const _Jarak(),
                 const LabelBagian('Unduhan'),
                 _Kartu(
@@ -101,17 +95,32 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const _Jarak(),
                 const LabelBagian('Tentang'),
-                const _Kartu(
+                _Kartu(
                   children: [
                     ListTile(
-                      title: Text('Mull Music App'),
-                      subtitle: Text('Versi 1.0.0 (pengembangan)'),
+                      leading: const KotakIkon(ikon: Icons.system_update_rounded, nada: NadaIkon.aksen, ukuran: 38),
+                      title: const Text('Cek update'),
+                      subtitle: FutureBuilder<String>(
+                        future: UpdateService.instance.versiApp(),
+                        builder: (context, snap) => Text(
+                          snap.hasData ? 'Mull Music App ${snap.data}' : 'Mull Music App',
+                        ),
+                      ),
+                      trailing: Icon(Icons.chevron_right_rounded, color: context.mull.textSubtle),
+                      onTap: () => tampilkanUpdate(context),
                     ),
-                    Divider(indent: 16, endIndent: 16),
-                    ListTile(
+                    SwitchListTile(
+                      value: s.cekUpdate,
+                      onChanged: (v) => s.cekUpdate = v,
+                      title: const Text('Cek update otomatis'),
+                      subtitle: const Text('Paling sering sekali sehari, waktu app dibuka.'),
+                    ),
+                    const Divider(indent: 16, endIndent: 16),
+                    const ListTile(
                       title: Text('Lisensi'),
                       subtitle: Text(
                         'GPL-3.0. Memakai yt-dlp, youtubedl-android, ffmpeg, dan QuickJS. '
+                        'Sidik jari Kenali lagu diport dari SongRec (GPL-3.0). '
                         'Font Plus Jakarta Sans (OFL).',
                       ),
                     ),
@@ -202,6 +211,83 @@ class _BarisYtDlpState extends State<_BarisYtDlp> {
               : TextButton(onPressed: _perbarui, child: const Text('Perbarui')),
         );
       },
+    );
+  }
+}
+
+
+/// Status izin notifikasi pemutar. Tanpa izin ini Android 13+ nggak
+/// menampilkan kontrol putar/jeda di bilah notifikasi dan layar kunci.
+class _BarisNotifikasi extends StatefulWidget {
+  const _BarisNotifikasi();
+
+  @override
+  State<_BarisNotifikasi> createState() => _BarisNotifikasiState();
+}
+
+class _BarisNotifikasiState extends State<_BarisNotifikasi> with WidgetsBindingObserver {
+  bool? _izin;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _cek();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Habis balik dari pengaturan Android, status perlu dibaca ulang.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _cek();
+  }
+
+  Future<void> _cek() async {
+    bool ok;
+    try {
+      ok = await YtDlp.hasNotificationPermission();
+    } catch (_) {
+      ok = false;
+    }
+    if (mounted) setState(() => _izin = ok);
+  }
+
+  Future<void> _ketuk() async {
+    if (_izin == true) {
+      await YtDlp.openNotificationSettings();
+      return;
+    }
+    // Coba dialog izin dulu. Kalau Android nggak mau nampilin lagi
+    // (sudah ditolak), kirim ke pengaturan notifikasi app.
+    final ok = await YtDlp.mintaIzinNotifikasi();
+    await _cek();
+    if (!ok && mounted && _izin != true) await YtDlp.openNotificationSettings();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ok = _izin == true;
+    return ListTile(
+      leading: KotakIkon(
+        ikon: ok ? Icons.notifications_active_rounded : Icons.notifications_off_rounded,
+        nada: ok ? NadaIkon.mint : NadaIkon.peach,
+        ukuran: 38,
+      ),
+      title: const Text('Notifikasi pemutar'),
+      subtitle: Text(
+        _izin == null
+            ? 'Mengecek...'
+            : ok
+                ? 'Aktif. Kontrol putar muncul di notifikasi dan layar kunci.'
+                : 'Mati. Ketuk buat mengizinkan supaya kontrol muncul di notifikasi dan layar kunci.',
+      ),
+      trailing: Icon(Icons.chevron_right_rounded, color: context.mull.textSubtle),
+      onTap: _ketuk,
     );
   }
 }

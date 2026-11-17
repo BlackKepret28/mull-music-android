@@ -35,15 +35,18 @@ class _LyricsViewState extends State<LyricsView> {
   int _barisAktif = -1;
 
   /// Jangan rebut kendali gulir kalau pengguna lagi baca sendiri.
+  /// Cuma diset oleh jari pengguna (lihat NotificationListener di build),
+  /// BUKAN oleh gulir otomatis, kalau nggak auto-follow mati sendiri.
   bool _digulirManual = false;
+
+  /// Satu kunci per baris, biar gulir ke tengah pakai tinggi baris yang asli.
+  final Map<int, GlobalKey> _kunci = {};
+  GlobalKey _kunciBaris(int i) => _kunci.putIfAbsent(i, () => GlobalKey());
 
   @override
   void initState() {
     super.initState();
     _muat();
-    _scroll.addListener(() {
-      if (_scroll.position.isScrollingNotifier.value) _digulirManual = true;
-    });
   }
 
   @override
@@ -52,6 +55,7 @@ class _LyricsViewState extends State<LyricsView> {
     if (old.track.id != widget.track.id) {
       _barisAktif = -1;
       _digulirManual = false;
+      _kunci.clear();
       _muat();
     } else if (old.posisi != widget.posisi) {
       _perbaruiBaris();
@@ -98,14 +102,32 @@ class _LyricsViewState extends State<LyricsView> {
 
   void _gulirKe(int i) {
     if (!_scroll.hasClients || i < 0) return;
-    // Tinggi baris nggak seragam, jadi ini perkiraan yang cukup enak dilihat.
-    const perkiraanTinggi = 44.0;
-    final target = (i * perkiraanTinggi) - (_scroll.position.viewportDimension / 2) + perkiraanTinggi;
-    _scroll.animateTo(
-      target.clamp(0, _scroll.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeOutCubic,
-    );
+    final ctx = _kunci[i]?.currentContext;
+    if (ctx != null) {
+      // Baris sudah ada di layar: taruh di sekitar tengah.
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.4,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+      );
+      return;
+    }
+    // Baris belum dibangun (jauh di luar layar, mis. habis lompat): loncat
+    // kasar dulu, lalu rapikan di frame berikutnya begitu barisnya jadi.
+    const perkiraanTinggi = 52.0;
+    final target = (i * perkiraanTinggi) - (_scroll.position.viewportDimension * 0.4);
+    _scroll.jumpTo(target.clamp(0, _scroll.position.maxScrollExtent));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _digulirManual) return;
+      final c = _kunci[i]?.currentContext;
+      if (c != null) {
+        Scrollable.ensureVisible(c,
+            alignment: 0.4,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic);
+      }
+    });
   }
 
   @override
@@ -159,7 +181,15 @@ class _LyricsViewState extends State<LyricsView> {
 
     return Stack(
       children: [
-        ListView.builder(
+        NotificationListener<ScrollNotification>(
+          onNotification: (n) {
+            // dragDetails != null berarti jari pengguna yang mulai menggulir.
+            if (n is ScrollStartNotification && n.dragDetails != null && !_digulirManual) {
+              setState(() => _digulirManual = true);
+            }
+            return false;
+          },
+          child: ListView.builder(
           controller: _scroll,
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
           itemCount: l.tersinkron.length + 1,
@@ -175,6 +205,7 @@ class _LyricsViewState extends State<LyricsView> {
             final aktif = i == _barisAktif;
 
             return InkWell(
+              key: _kunciBaris(i),
               onTap: widget.onSeek == null
                   ? null
                   : () {
@@ -196,7 +227,7 @@ class _LyricsViewState extends State<LyricsView> {
               ),
             );
           },
-        ),
+        )),
         if (_digulirManual)
           Positioned(
             right: 16,

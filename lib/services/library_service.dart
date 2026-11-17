@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import '../models/track.dart';
 import '../ytdlp.dart';
 
+enum HasilHapus { terhapus, dibatalkan, gagal }
+
 /// Lagu dan video di HP, dibaca dari MediaStore.
 ///
 /// Tanpa izin baca audio: cuma Music/Mull dan Movies/Mull (unduhan Mull).
@@ -22,6 +24,7 @@ class LibraryService extends ChangeNotifier {
   List<Track> _lagu = const [];
   List<Track> _video = const [];
   Set<String> _milikMull = const {};
+  Set<String> _milikApp = const {};
   bool _semua = false;
   bool _memuat = false;
   String? _galat;
@@ -32,9 +35,13 @@ class LibraryService extends ChangeNotifier {
   /// Cuma unduhan Mull (Music/Mull).
   List<Track> get laguMull => _lagu.where(milikMull).toList();
 
-  /// Berkas ini hasil unduhan Mull? Cuma yang ini boleh dihapus dari app;
-  /// lagu lain di HP bukan urusan Mull buat dihapus.
+  /// Berkas ini hasil unduhan Mull (ada di Music/Mull atau Movies/Mull)?
   bool milikMull(Track t) => t.localPath != null && _milikMull.contains(t.localPath);
+
+  /// Dibuat oleh pemasangan app yang sekarang, jadi bisa dihapus tanpa
+  /// dialog konfirmasi dari Android. Lagu lain di HP (dan unduhan Mull dari
+  /// sebelum app dipasang ulang) tetap bisa dihapus, tapi Android nanya dulu.
+  bool milikApp(Track t) => t.localPath != null && _milikApp.contains(t.localPath);
 
   /// Izin baca semua lagu di HP sudah diberikan.
   bool get semuaLagu => _semua;
@@ -57,16 +64,19 @@ class LibraryService extends ChangeNotifier {
       final lagu = <Track>[];
       final video = <Track>[];
       final milik = <String>{};
+      final punyaApp = <String>{};
 
       for (final m in items) {
         final t = dariMediaStore(m);
         (m['video'] == true ? video : lagu).add(t);
         if (m['mull'] == true && t.localPath != null) milik.add(t.localPath!);
+        if (m['own'] == true && t.localPath != null) punyaApp.add(t.localPath!);
       }
 
       _lagu = lagu;
       _video = video;
       _milikMull = milik;
+      _milikApp = punyaApp;
     } catch (e) {
       _galat = 'Nggak bisa baca pustaka: $e';
     } finally {
@@ -86,17 +96,23 @@ class LibraryService extends ChangeNotifier {
     return ok;
   }
 
-  Future<bool> hapus(Track t) async {
-    if (!milikMull(t)) return false;
+  /// Hapus berkas dari HP. Lagu yang bukan buatan app ini memunculkan
+  /// dialog konfirmasi Android dulu.
+  Future<HasilHapus> hapus(Track t) async {
     final uri = t.localPath;
-    if (uri == null) return false;
-    final ok = await YtDlp.deleteMedia(uri);
-    if (ok) {
-      _lagu = _lagu.where((e) => e.localPath != uri).toList();
-      _video = _video.where((e) => e.localPath != uri).toList();
-      notifyListeners();
-    }
-    return ok;
+    if (uri == null) return HasilHapus.gagal;
+    final r = await YtDlp.deleteMedia(uri);
+    if (r.dibatalkan) return HasilHapus.dibatalkan;
+    if (!r.terhapus) return HasilHapus.gagal;
+    lepas(uri);
+    return HasilHapus.terhapus;
+  }
+
+  /// Buang satu berkas dari daftar di memori (sudah dihapus di luar).
+  void lepas(String uri) {
+    _lagu = _lagu.where((e) => e.localPath != uri).toList();
+    _video = _video.where((e) => e.localPath != uri).toList();
+    notifyListeners();
   }
 
   /// Judul yang kita tulis waktu mengunduh: `Judul [videoId].ext`.

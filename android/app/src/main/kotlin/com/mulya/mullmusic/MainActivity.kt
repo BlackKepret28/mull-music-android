@@ -3,6 +3,10 @@ package com.mulya.mullmusic
 import android.Manifest
 import android.content.ContentUris
 import android.content.ContentValues
+import android.content.Intent
+import android.app.RecoverableSecurityException
+import android.provider.Settings
+import androidx.core.content.FileProvider
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -37,7 +41,15 @@ import java.util.concurrent.Executors
  *                    di HP kalau izin baca audio sudah diberikan
  *   hasAudioPermission / ensureAudioPermission -> izin baca lagu (READ_MEDIA_AUDIO)
  *   thumbnail(uri, size) -> sampul bawaan berkas (JPEG), buat Pustaka
- *   deleteMedia(uri) -> hapus satu berkas pustaka
+ *   deleteMedia(uri) -> hapus satu berkas pustaka. Berkas yang bukan milik app
+ *       (lagu lain di HP, atau unduhan Mull sebelum app dipasang ulang) minta
+ *       konfirmasi lewat dialog sistem Android.
+ *   decodePcm(source, headers?, startMs, lengthMs) -> PCM 16 kHz mono buat Kenali lagu
+ *   ensureMicPermission, micStart, micStatus, micSnapshot(seconds), micStop -> rekam mikrofon
+ *   appInfo -> versi app + ABI HP, buat cek update
+ *   canInstall, openInstallPermission, installApk(path) -> pasang APK update
+ *   shareText(text, title) -> lembar Bagikan Android
+ *   openUrl(url) -> buka di browser (login Google)
  *   ensureNotificationPermission -> minta POST_NOTIFICATIONS (Android 13+)
  *   launchArgs  -> extra dari intent (mis. autorun=true dari adb)
  *   writeReport(text) -> simpan laporan spike ke files/spike-report.txt
@@ -56,6 +68,12 @@ class MainActivity : AudioServiceActivity() {
 
     /** Hasil MethodChannel yang lagi nunggu jawaban dialog izin. */
     private var pendingPermission: MethodChannel.Result? = null
+
+    /** Hapus berkas yang lagi nunggu jawaban dialog hapus dari sistem. */
+    private var pendingDelete: MethodChannel.Result? = null
+    private var pendingDeleteUri: Uri? = null
+
+    private val mic = MicRecorder()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -79,8 +97,31 @@ class MainActivity : AudioServiceActivity() {
                 requestPermission(audioPermission(), result)
                 return@setMethodCallHandler
             }
+            if (call.method == "hasNotificationPermission") {
+                val ok = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                result.success(mapOf("granted" to ok))
+                return@setMethodCallHandler
+            }
             if (call.method == "hasAudioPermission") {
                 result.success(mapOf("granted" to hasAudioPermission()))
+                return@setMethodCallHandler
+            }
+            if (call.method == "ensureMicPermission") {
+                requestPermission(Manifest.permission.RECORD_AUDIO, result)
+                return@setMethodCallHandler
+            }
+            if (call.method == "deleteMedia") {
+                deleteMedia(Uri.parse(call.argument<String>("uri")!!), result)
+                return@setMethodCallHandler
+            }
+            if (call.method in setOf("openInstallPermission", "installApk", "shareText", "openUrl", "openNotificationSettings")) {
+                // Membuka activity lain: harus dari main thread.
+                try {
+                    result.success(handleUi(call))
+                } catch (e: Throwable) {
+                    result.error("failed", e.message ?: e.toString(), null)
+                }
                 return@setMethodCallHandler
             }
             if (call.method == "launchArgs") {
@@ -233,16 +274,157 @@ class MainActivity : AudioServiceActivity() {
                     call.argument<Int>("size") ?: 256,
                 ),
             )
-            "deleteMedia" -> {
-                val uri = Uri.parse(call.argument<String>("uri")!!)
-                mapOf("deleted" to (contentResolver.delete(uri, null, null) > 0))
+            "decodePcm" -> PcmDecoder.decode(
+                applicationContext,
+                call.argument<String>("source")!!,
+                call.argument<Map<String, String>>("headers"),
+                (call.argument<Number>("startMs") ?: 0).toLong(),
+                (call.argument<Number>("lengthMs") ?: 12000).toLong(),
+            )
+            "micStart" -> {
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    throw SecurityException("Izin mikrofon belum diberikan.")
+                }
+                mic.start(applicationContext)
+                mapOf("ok" to true)
             }
+            "micStatus" -> mapOf("level" to mic.level, "seconds" to mic.seconds)
+            "micSnapshot" -> mapOf("pcm" to mic.snapshot(call.argument<Number>("seconds")?.toDouble() ?: 12.0))
+            "micStop" -> {
+                mic.stop()
+                mapOf("ok" to true)
+            }
+            "appInfo" -> {
+                val pi = packageManager.getPackageInfo(packageName, 0)
+                mapOf(
+                    "versionName" to pi.versionName,
+                    "versionCode" to pi.longVersionCode,
+                    "abis" to Build.SUPPORTED_ABIS.toList(),
+                    "sdk" to Build.VERSION.SDK_INT,
+                )
+            }
+            "canInstall" -> mapOf("granted" to packageManager.canRequestPackageInstalls())
             "writeReport" -> {
                 val f = File(getExternalFilesDir(null), "spike-report.txt")
                 f.writeText(call.argument<String>("text") ?: "")
                 f.absolutePath
             }
             else -> throw IllegalArgumentException("Metode tidak dikenal: ${call.method}")
+        }
+    }
+
+    // ---- Yang membuka activity lain (main thread) -------------------------
+
+    private fun handleUi(call: MethodCall): Any? = when (call.method) {
+        "openInstallPermission" -> {
+            startActivity(
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
+            )
+            mapOf("ok" to true)
+        }
+        "installApk" -> {
+            val f = File(call.argument<String>("path")!!)
+            val uri = FileProvider.getUriForFile(this, "$packageName.files", f)
+            startActivity(
+                Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            mapOf("ok" to true)
+        }
+        "openNotificationSettings" -> {
+            // Halaman notifikasi app ini di Pengaturan Android, buat nyalain
+            // lagi kalau izinnya sempat ditolak.
+            startActivity(
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            mapOf("ok" to true)
+        }
+        "openUrl" -> {
+            startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(call.argument<String>("url")!!))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            mapOf("ok" to true)
+        }
+        "shareText" -> {
+            val kirim = Intent(Intent.ACTION_SEND)
+                .setType("text/plain")
+                .putExtra(Intent.EXTRA_TEXT, call.argument<String>("text") ?: "")
+            startActivity(Intent.createChooser(kirim, call.argument<String>("title")))
+            mapOf("ok" to true)
+        }
+        else -> throw IllegalArgumentException("Metode tidak dikenal: ${call.method}")
+    }
+
+    // ---- Hapus berkas ------------------------------------------------------
+
+    /**
+     * Berkas milik app langsung terhapus. Yang bukan (lagu lain di HP, atau
+     * unduhan Mull dari pemasangan sebelumnya) dilempar SecurityException,
+     * lalu Android yang nanya ke pengguna lewat dialognya sendiri.
+     */
+    private fun deleteMedia(uri: Uri, result: MethodChannel.Result) {
+        pool.execute {
+            try {
+                val ok = contentResolver.delete(uri, null, null) > 0
+                main.post { result.success(mapOf("deleted" to ok)) }
+            } catch (e: SecurityException) {
+                val sender = try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        MediaStore.createDeleteRequest(contentResolver, listOf(uri)).intentSender
+                    } else {
+                        (e as? RecoverableSecurityException)?.userAction?.actionIntent?.intentSender
+                    }
+                } catch (_: Throwable) {
+                    null
+                }
+                main.post {
+                    if (sender == null) {
+                        result.error("failed", "Android nggak ngizinin berkas ini dihapus.", null)
+                        return@post
+                    }
+                    pendingDelete?.success(mapOf("deleted" to false))
+                    pendingDelete = result
+                    pendingDeleteUri = uri
+                    try {
+                        @Suppress("DEPRECATION")
+                        startIntentSenderForResult(sender, DELETE_REQUEST, null, 0, 0, 0)
+                    } catch (t: Throwable) {
+                        pendingDelete = null
+                        result.error("failed", t.message ?: t.toString(), null)
+                    }
+                }
+            } catch (e: Throwable) {
+                main.post { result.error("failed", e.message ?: e.toString(), null) }
+            }
+        }
+    }
+
+    @Deprecated("Masih dipakai buat startIntentSenderForResult")
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != DELETE_REQUEST) return
+        val r = pendingDelete ?: return
+        val uri = pendingDeleteUri
+        pendingDelete = null
+        pendingDeleteUri = null
+        if (resultCode != RESULT_OK) {
+            r.success(mapOf("deleted" to false, "canceled" to true))
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R || uri == null) {
+            // Android 11+: dialog sistem sudah sekalian menghapus.
+            r.success(mapOf("deleted" to true))
+            return
+        }
+        // Android 10: izinnya baru diberikan, hapusnya diulang.
+        pool.execute {
+            val ok = try { contentResolver.delete(uri, null, null) > 0 } catch (_: Throwable) { false }
+            main.post { r.success(mapOf("deleted" to ok)) }
         }
     }
 
@@ -376,6 +558,7 @@ class MainActivity : AudioServiceActivity() {
                 add(MediaStore.MediaColumns.DURATION)
                 add(MediaStore.MediaColumns.DATE_ADDED)
                 add(MediaStore.MediaColumns.RELATIVE_PATH)
+                add(MediaStore.MediaColumns.OWNER_PACKAGE_NAME)
                 if (!video) {
                     add(MediaStore.Audio.Media.ALBUM)
                     add(MediaStore.Audio.Media.ARTIST)
@@ -410,6 +593,7 @@ class MainActivity : AudioServiceActivity() {
                 val iJudul = c.getColumnIndex(MediaStore.Audio.Media.TITLE)
                 val iAlbum = c.getColumnIndex(MediaStore.Audio.Media.ALBUM)
                 val iFolder = c.getColumnIndex(MediaStore.MediaColumns.RELATIVE_PATH)
+                val iPemilik = c.getColumnIndex(MediaStore.MediaColumns.OWNER_PACKAGE_NAME)
 
                 while (c.moveToNext()) {
                     val id = c.getLong(iId)
@@ -425,6 +609,9 @@ class MainActivity : AudioServiceActivity() {
                         "folder" to if (iFolder >= 0 && !c.isNull(iFolder)) c.getString(iFolder) else null,
                         // Berkas unduhan Mull: cuma yang ini boleh dihapus dari app.
                         "mull" to (iFolder >= 0 && c.getString(iFolder) == folder),
+                        // Dibuat oleh pemasangan app yang SEKARANG: bisa dihapus
+                        // tanpa dialog sistem.
+                        "own" to (iPemilik >= 0 && c.getString(iPemilik) == packageName),
                         "video" to video,
                     )
                 }
@@ -450,11 +637,13 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun onDestroy() {
+        mic.stop()
         pool.shutdownNow()
         super.onDestroy()
     }
 
     private companion object {
         const val PERMISSION_REQUEST = 1001
+        const val DELETE_REQUEST = 1002
     }
 }

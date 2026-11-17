@@ -5,6 +5,7 @@ import '../services/playlist_service.dart';
 import '../theme.dart';
 import 'artwork.dart';
 import 'mull_ui.dart';
+import 'sampul_playlist.dart';
 
 /// Kartu video 16:9 dengan badge durasi di pojok.
 ///
@@ -126,13 +127,6 @@ class PlaylistCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    final sampul = playlist.lagu
-        .map((t) => t.thumbUrl)
-        .where((u) => u != null && u.isNotEmpty)
-        .cast<String>()
-        .take(4)
-        .toList();
-
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(MullUkuran.sampul),
@@ -141,24 +135,7 @@ class PlaylistCard extends StatelessWidget {
         children: [
           AspectRatio(
             aspectRatio: 1,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(MullUkuran.sampul),
-              child: switch (sampul.length) {
-                0 => ColoredBox(
-                    color: context.mull.violetSoft,
-                    child: Icon(Icons.queue_music_rounded, color: context.mull.violet, size: 30),
-                  ),
-                1 || 2 || 3 => Artwork(url: sampul.first, size: double.infinity, radius: 0),
-                _ => GridView.count(
-                    crossAxisCount: 2,
-                    padding: EdgeInsets.zero,
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: [
-                      for (final u in sampul) Artwork(url: u, size: double.infinity, radius: 0),
-                    ],
-                  ),
-              },
-            ),
+            child: SampulPlaylist(playlist: playlist),
           ),
           const SizedBox(height: 8),
           Text(
@@ -178,11 +155,22 @@ class PlaylistCard extends StatelessWidget {
   }
 }
 
-/// Kartu "bikin playlist baru", bentuknya sama dengan [PlaylistCard].
+/// Kartu aksi (bikin playlist baru, impor), bentuknya sama dengan [PlaylistCard].
 class PlaylistCardBaru extends StatelessWidget {
-  const PlaylistCardBaru({super.key, this.onTap});
+  const PlaylistCardBaru({
+    super.key,
+    this.onTap,
+    this.judul = 'Playlist baru',
+    this.keterangan = 'Kumpulkan lagu',
+    this.ikon = Icons.add_rounded,
+    this.nada = NadaIkon.aksen,
+  });
 
   final VoidCallback? onTap;
+  final String judul;
+  final String keterangan;
+  final IconData ikon;
+  final NadaIkon nada;
 
   @override
   Widget build(BuildContext context) {
@@ -203,19 +191,19 @@ class PlaylistCardBaru extends StatelessWidget {
                 borderRadius: BorderRadius.circular(MullUkuran.sampul),
                 border: Border.all(color: context.mull.border),
               ),
-              child: const Center(child: KotakIkon(ikon: Icons.add_rounded, ukuran: 48)),
+              child: Center(child: KotakIkon(ikon: ikon, nada: nada, ukuran: 48)),
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Playlist baru',
+          Text(
+            judul,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
           Text(
-            'Kumpulkan lagu',
+            keterangan,
             style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
           ),
         ],

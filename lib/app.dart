@@ -34,8 +34,9 @@ class _MullAppState extends State<MullApp> {
         builder: (context, _) => MaterialApp(
           title: 'Mull Music',
           debugShowCheckedModeBanner: false,
-          themeMode: _settings.themeMode,
-          theme: MullTheme.light(),
+          // Cuma ada tema gelap.
+          themeMode: ThemeMode.dark,
+          theme: MullTheme.dark(),
           darkTheme: MullTheme.dark(),
           home: const AppShell(),
         ),

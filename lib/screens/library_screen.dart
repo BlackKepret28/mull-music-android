@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../aksi.dart';
 import '../models/track.dart';
 import '../services/library_service.dart';
+import '../services/player_service.dart';
 import '../services/playlist_service.dart';
 import '../theme.dart';
 import '../widgets/empty_state.dart';
@@ -9,6 +11,8 @@ import '../widgets/media_cards.dart';
 import '../widgets/mull_ui.dart';
 import '../widgets/segmented_pill.dart';
 import '../widgets/track_tile.dart';
+import 'finder_screen.dart';
+import 'import_screen.dart';
 import 'playlist_screen.dart';
 import 'video_screen.dart';
 
@@ -79,80 +83,111 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _hapus(Track t) async {
-    final yakin = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Hapus berkas?'),
-        content: Text('"${t.title}" bakal dihapus permanen dari HP kamu.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Batal'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Hapus'),
-          ),
-        ],
-      ),
-    );
-    if (yakin != true) return;
-
-    final ok = await _lib.hapus(t);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok ? 'Berkas dihapus.' : 'Nggak bisa menghapus berkas itu.',
+    // Berkas buatan app ini langsung terhapus, jadi ditanya dulu di sini.
+    // Lagu lain (dan unduhan dari sebelum app dipasang ulang) ditanya
+    // Android sendiri lewat dialognya, jadi nggak perlu ditanya dua kali.
+    if (_lib.milikApp(t)) {
+      final yakin = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Hapus dari HP?'),
+          content: Text('"${t.title}" bakal dihapus permanen dari HP kamu.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Hapus'),
+            ),
+          ],
         ),
-      ),
-    );
+      );
+      if (yakin != true) return;
+    }
+
+    final HasilHapus hasil;
+    try {
+      hasil = await _lib.hapus(t);
+    } catch (e) {
+      if (mounted) kabari(context, 'Nggak bisa menghapus berkas itu.');
+      return;
+    }
+    if (hasil == HasilHapus.terhapus && t.localPath != null) {
+      await PlaylistService.instance.lepasBerkas(t.localPath!);
+    }
+    if (!mounted) return;
+    switch (hasil) {
+      case HasilHapus.terhapus:
+        kabari(context, '"${t.title}" dihapus dari HP.');
+      case HasilHapus.dibatalkan:
+        break;
+      case HasilHapus.gagal:
+        kabari(context, 'Nggak bisa menghapus berkas itu.');
+    }
   }
 
   void _menuBerkas(Track t) {
+    final player = MullAudioHandler.instance;
     tampilkanLembar<void>(
       context,
       judul: t.title,
       builder: (ctx) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 22),
-            leading: const KotakIkon(
-              ikon: Icons.playlist_add_rounded,
-              nada: NadaIkon.lavender,
+          if (!t.isVideo) ...[
+            BarisMenu(
+              ikon: Icons.queue_play_next_rounded,
+              label: 'Putar berikutnya',
+              nada: NadaIkon.aksen,
+              onTap: () {
+                Navigator.pop(ctx);
+                player.putarBerikutnya(t);
+                kabari(context, 'Diputar setelah lagu ini.');
+              },
             ),
-            title: const Text('Tambah ke playlist'),
+            BarisMenu(
+              ikon: Icons.playlist_play_rounded,
+              label: 'Tambah ke antrean',
+              nada: NadaIkon.mint,
+              onTap: () {
+                Navigator.pop(ctx);
+                player.tambahKeAntrean(t);
+                kabari(context, 'Masuk antrean.');
+              },
+            ),
+          ],
+          BarisMenu(
+            ikon: Icons.playlist_add_rounded,
+            label: 'Tambah ke playlist',
             onTap: () {
               Navigator.pop(ctx);
               tampilkanTambahKePlaylist(context, t);
             },
           ),
-          if (_lib.milikMull(t))
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 22),
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: ctx.mull.dangerSoft,
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Icon(
-                  Icons.delete_outline_rounded,
-                  size: 21,
-                  color: ctx.mull.danger,
-                ),
-              ),
-              title: Text(
-                'Hapus dari HP',
-                style: TextStyle(color: ctx.mull.danger),
-              ),
+          if (!t.isVideo)
+            BarisMenu(
+              ikon: Icons.graphic_eq_rounded,
+              label: 'Kenali lagunya',
+              nada: NadaIkon.peach,
               onTap: () {
                 Navigator.pop(ctx);
-                _hapus(t);
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => FinderScreen(berkas: t)),
+                );
               },
             ),
+          BarisMenu(
+            ikon: Icons.delete_outline_rounded,
+            label: 'Hapus dari HP',
+            keterangan: _lib.milikApp(t) ? null : 'Android bakal minta konfirmasi dulu.',
+            bahaya: true,
+            onTap: () {
+              Navigator.pop(ctx);
+              _hapus(t);
+            },
+          ),
         ],
       ),
     );
@@ -391,7 +426,7 @@ class _TabLagu extends StatelessWidget {
         if (j == lagu.length) {
           return PetunjukAkhir(
             semuaLagu
-                ? 'Ketuk titik tiga buat nambah ke playlist. Lagu unduhan Mull juga bisa dihapus dari situ.'
+                ? 'Ketuk titik tiga buat putar berikutnya, nambah ke playlist, kenali, atau hapus dari HP.'
                 : 'Ketuk titik tiga di lagu buat nambah ke playlist atau hapus dari HP.',
           );
         }
@@ -586,7 +621,7 @@ class _TabPlaylist extends StatelessWidget {
             // Sampul kotak + dua baris teks di bawahnya.
             childAspectRatio: 1 / 1.34,
           ),
-          itemCount: daftar.length + 1,
+          itemCount: daftar.length + 2,
           itemBuilder: (context, i) {
             if (i == 0) {
               return PlaylistCardBaru(
@@ -596,12 +631,23 @@ class _TabPlaylist extends StatelessWidget {
                 },
               );
             }
-            final p = daftar[i - 1];
+            if (i == 1) {
+              return PlaylistCardBaru(
+                judul: 'Impor',
+                keterangan: 'Dari YouTube atau Spotify',
+                ikon: Icons.link_rounded,
+                nada: NadaIkon.mint,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ImportScreen()),
+                ),
+              );
+            }
+            final p = daftar[i - 2];
             return PlaylistCard(
               playlist: p,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => PlaylistDetailScreen(playlist: p),
+                  builder: (_) => PlaylistDetailScreen(playlist: p, onPlay: putarDaftar),
                 ),
               ),
             );

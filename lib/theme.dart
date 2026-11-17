@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 /// (`my_secret_app/lib/core/theme/app_colors.dart`): latar putih keabuan
 /// dengan cahaya pastel, kartu solid yang kalem, kaca cuma buat kontrol yang
 /// melayang. Bedanya cuma satu: aksennya violet Mull (sama dengan `--accent`
-/// versi Windows, #6344FB terang / #8B7CFF gelap), bukan biru MSA.
+/// versi Windows, #8B7CFF di tema gelap), bukan biru MSA. Mull cuma punya
+/// tema gelap (diputuskan 17 Nov 2026).
 @immutable
 class MullColors extends ThemeExtension<MullColors> {
   const MullColors({
@@ -86,43 +87,6 @@ class MullColors extends ThemeExtension<MullColors> {
   final Color blobMint;
   final double blobOpacity;
 
-  static const light = MullColors(
-    bg: Color(0xFFF6F7FB),
-    surface: Color(0xDBFFFFFF),
-    surfaceSolid: Color(0xFFFFFFFF),
-    border: Color(0xE6E2E8F4),
-    divider: Color(0xFFEEF1F6),
-    text: Color(0xFF0F172A),
-    textMuted: Color(0xFF5B6475),
-    textSubtle: Color(0xFF64748B),
-    icon: Color(0xFF334155),
-    accent: Color(0xFF6344FB),
-    accentStrong: Color(0xFF4F32DB),
-    accentSoft: Color(0xFFE9E5FF),
-    onAccent: Color(0xFFFFFFFF),
-    warning: Color(0xFFB45309),
-    warningSoft: Color(0xFFFEF3C7),
-    success: Color(0xFF047857),
-    successSoft: Color(0xFFD1FAE5),
-    danger: Color(0xFFDC2626),
-    dangerSoft: Color(0xFFFEE2E2),
-    violet: Color(0xFF6D28D9),
-    violetSoft: Color(0xFFEDE9FE),
-    checkBorder: Color(0xFFC5CCDA),
-    track: Color(0xFFE6EAF2),
-    chipBg: Color(0xFFEEF1F6),
-    glassTint: Color(0x6BFFFFFF),
-    glassBorder: Color(0xD9FFFFFF),
-    shadow: Color(0x1F1E295A),
-    cardShadow: Color(0x0F1E295A),
-    snackBg: Color(0xFF0F172A),
-    blobBlue: Color(0xFFA9C7FF),
-    blobLavender: Color(0xFFDCCBFF),
-    blobPeach: Color(0xFFFFDCC8),
-    blobMint: Color(0xFFBFEFE4),
-    blobOpacity: 0.9,
-  );
-
   static const dark = MullColors(
     bg: Color(0xFF0B0D12),
     surface: Color(0xD6171B25),
@@ -183,7 +147,7 @@ class MullColors extends ThemeExtension<MullColors> {
 enum NadaIkon { aksen, mint, lavender, peach }
 
 extension MullThemeContext on BuildContext {
-  MullColors get mull => Theme.of(this).extension<MullColors>() ?? MullColors.light;
+  MullColors get mull => Theme.of(this).extension<MullColors>() ?? MullColors.dark;
   bool get gelap => Theme.of(this).brightness == Brightness.dark;
 }
 
@@ -205,7 +169,6 @@ abstract final class MullUkuran {
 abstract final class MullTheme {
   static const font = 'PlusJakartaSans';
 
-  static ThemeData light() => _build(MullColors.light, Brightness.light);
   static ThemeData dark() => _build(MullColors.dark, Brightness.dark);
 
   static ThemeData _build(MullColors c, Brightness brightness) {

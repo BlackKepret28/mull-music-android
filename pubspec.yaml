@@ -42,6 +42,8 @@ dependencies:
   cached_network_image: ^4.0.6
   liquid_glass_widgets: ^1.17.0
   video_player: ^2.14.1
+  # SHA-256 buat ngecek APK update (sudah ikut lewat paket lain, sekarang langsung).
+  crypto: ^3.0.6
 dev_dependencies:
   flutter_test:
     sdk: flutter

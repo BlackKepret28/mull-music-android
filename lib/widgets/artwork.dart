@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../ytdlp.dart';
@@ -103,25 +104,41 @@ class _GambarSampulState extends State<GambarSampul> {
     final cadangan = widget.cadangan ?? const SizedBox.shrink();
     if (u == null || u.isEmpty) return cadangan;
 
-    final lokal = _lokal;
-    if (lokal != null) {
-      return FutureBuilder<Uint8List?>(
-        future: lokal,
-        builder: (context, snap) {
-          final b = snap.data;
-          if (b == null) return cadangan;
-          return Image.memory(b, fit: widget.fit, gaplessPlayback: true);
-        },
-      );
-    }
+    // Gambar di-decode seukuran tampilannya (dibulatkan ke 64 px biar ukuran
+    // yang mirip berbagi cache), bukan ukuran asli 480-1280 px. Hemat memori
+    // dan bikin daftar panjang lebih ringan digulir.
+    return LayoutBuilder(builder: (context, batas) {
+      final dpr = MediaQuery.devicePixelRatioOf(context);
+      var sisi = 0.0;
+      for (final v in [batas.maxWidth, batas.maxHeight]) {
+        if (v.isFinite && v > sisi) sisi = v;
+      }
+      final lebar = sisi <= 0 ? null : (((sisi * dpr) / 64).ceil() * 64).clamp(64, 1024);
 
-    return Image.network(
-      u,
-      fit: widget.fit,
-      errorBuilder: (_, _, _) => cadangan,
-      // Tanpa animasi muncul: biar daftar panjang nggak kedip-kedip.
-      gaplessPlayback: true,
-    );
+      final lokal = _lokal;
+      if (lokal != null) {
+        return FutureBuilder<Uint8List?>(
+          future: lokal,
+          builder: (context, snap) {
+            final b = snap.data;
+            if (b == null) return cadangan;
+            return Image.memory(b, fit: widget.fit, gaplessPlayback: true, cacheWidth: lebar);
+          },
+        );
+      }
+
+      // Disimpan di disk juga, jadi buka app berikutnya nggak unduh ulang.
+      return CachedNetworkImage(
+        imageUrl: u,
+        fit: widget.fit,
+        memCacheWidth: lebar,
+        // Tanpa animasi muncul: biar daftar panjang nggak kedip-kedip.
+        fadeInDuration: Duration.zero,
+        fadeOutDuration: Duration.zero,
+        placeholder: (_, _) => cadangan,
+        errorWidget: (_, _, _) => cadangan,
+      );
+    });
   }
 }
 

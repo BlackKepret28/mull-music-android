@@ -2,21 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/track.dart';
+import '../services/finder_service.dart';
 import '../services/library_service.dart';
 import '../services/playlist_service.dart';
 import '../services/recent_service.dart';
 import '../theme.dart';
 import '../widgets/bottom_nav.dart';
-import '../widgets/artwork.dart';
 import '../widgets/glass_surface.dart';
 import '../widgets/mull_ui.dart';
 import '../widgets/quick_tile.dart';
+import '../widgets/sampul_playlist.dart';
 import '../widgets/shelf.dart';
+import '../widgets/update_ui.dart';
+import 'finder_screen.dart';
 import 'playlist_screen.dart';
 import 'settings_screen.dart';
 
 /// Pintasan tetap di petak akses cepat, dipakai kalau playlist belum banyak.
-enum Pintasan { pustaka, unduhan, playlist, cari }
+enum Pintasan { kenali, pustaka, unduhan, playlist, cari }
 
 /// Beranda. Mekanismenya ikut versi Windows (salam menurut jam, petak akses
 /// cepat, tempel tautan, lalu rak kartu); tampilannya ikut Beranda MSA:
@@ -75,6 +78,10 @@ class HomeScreen extends StatelessWidget {
     onTempelTautan?.call(teks);
   }
 
+  void _bukaKenali(BuildContext context) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FinderScreen()));
+  }
+
   void _bukaPlaylist(BuildContext context, Playlist p) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => PlaylistDetailScreen(playlist: p, onPlay: onPlay)),
@@ -86,16 +93,19 @@ class HomeScreen extends StatelessWidget {
     final lib = LibraryService.instance;
     final playlists = PlaylistService.instance;
     final recent = RecentService.instance;
+    final finder = FinderService.instance;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: ListenableBuilder(
-        listenable: Listenable.merge([lib, playlists, recent]),
+        listenable: Listenable.merge([lib, playlists, recent, finder]),
         builder: (context, _) {
           final baruDiputar = recent.daftar.take(12).toList();
           // Cuma unduhan Mull; lagu lain di HP bukan "baru diunduh".
           final baruDiunduh = lib.laguMull.take(12).toList();
           final daftarPlaylist = playlists.daftar;
+          final dikenali = finder.riwayat.where((l) => l.yt != null).take(12).toList();
+          final laguDikenali = [for (final l in dikenali) l.yt!.copyWith(thumbUrl: l.sampul)];
 
           final kosong = baruDiputar.isEmpty && baruDiunduh.isEmpty && daftarPlaylist.isEmpty;
 
@@ -108,11 +118,13 @@ class HomeScreen extends StatelessWidget {
             ),
             children: [
               _Kepala(
+                onKenali: () => _bukaKenali(context),
                 onPengaturan: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const SettingsScreen()),
                 ),
               ),
               const SizedBox(height: 20),
+              const KartuUpdate(),
               _KolomCari(
                 onKirim: (teks) => onTempelTautan?.call(teks),
                 onTempel: () => _tempel(context),
@@ -122,6 +134,7 @@ class HomeScreen extends StatelessWidget {
                 playlists: daftarPlaylist,
                 onBukaPlaylist: (p) => _bukaPlaylist(context, p),
                 onPintasan: (p) => switch (p) {
+                  Pintasan.kenali => _bukaKenali(context),
                   Pintasan.pustaka => onGoLibrary?.call(),
                   Pintasan.unduhan => onGoDownloads?.call(),
                   Pintasan.playlist => onGoLibrary?.call(),
@@ -134,16 +147,22 @@ class HomeScreen extends StatelessWidget {
                 items: baruDiputar,
                 onTapItem: (t) => onPlay?.call(baruDiputar, baruDiputar.indexOf(t)),
               ),
+              _RakPlaylist(
+                playlists: daftarPlaylist.take(12).toList(),
+                onLihatSemua: onGoLibrary,
+                onBuka: (p) => _bukaPlaylist(context, p),
+              ),
               Shelf(
                 title: 'Baru diunduh',
                 items: baruDiunduh,
                 onSeeAll: onGoLibrary,
                 onTapItem: (t) => onPlay?.call(baruDiunduh, baruDiunduh.indexOf(t)),
               ),
-              _RakPlaylist(
-                playlists: daftarPlaylist.take(12).toList(),
-                onLihatSemua: onGoLibrary,
-                onBuka: (p) => _bukaPlaylist(context, p),
+              Shelf(
+                title: 'Pernah dikenali',
+                items: laguDikenali,
+                onSeeAll: () => _bukaKenali(context),
+                onTapItem: (t) => onPlay?.call(laguDikenali, laguDikenali.indexOf(t)),
               ),
               if (!kosong)
                 const PetunjukAkhir('Lagu yang kamu putar dan unduh bakal muncul di sini.'),
@@ -156,8 +175,9 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _Kepala extends StatelessWidget {
-  const _Kepala({required this.onPengaturan});
+  const _Kepala({required this.onKenali, required this.onPengaturan});
 
+  final VoidCallback onKenali;
   final VoidCallback onPengaturan;
 
   @override
@@ -185,6 +205,14 @@ class _Kepala extends StatelessWidget {
               ],
             ),
           ),
+          TombolIkon(
+            ikon: Icons.graphic_eq_rounded,
+            tooltip: 'Kenali lagu',
+            kaca: true,
+            ukuran: 48,
+            onPressed: onKenali,
+          ),
+          const SizedBox(width: 10),
           TombolIkon(
             ikon: Icons.settings_rounded,
             tooltip: 'Pengaturan',
@@ -286,12 +314,7 @@ class _PetakCepat extends StatelessWidget {
     final petak = <Widget>[];
 
     for (final p in playlists.take(4)) {
-      final sampul = p.lagu
-          .map((t) => t.thumbUrl)
-          .where((u) => u != null && u.isNotEmpty)
-          .cast<String>()
-          .take(4)
-          .toList();
+      final sampul = SampulPlaylist.dari(p);
       petak.add(QuickTile(
         label: p.nama,
         covers: sampul.length >= 4 ? sampul : null,
@@ -304,10 +327,11 @@ class _PetakCepat extends StatelessWidget {
 
     // Warna kotak ikon ala MSA: tiap pintasan punya nada pastel sendiri.
     const tetap = [
+      (Pintasan.kenali, 'Kenali lagu', Icons.graphic_eq_rounded, NadaIkon.peach),
       (Pintasan.pustaka, 'Pustaka', Icons.album_rounded, NadaIkon.aksen),
       (Pintasan.unduhan, 'Unduhan', Icons.arrow_circle_down_rounded, NadaIkon.mint),
       (Pintasan.playlist, 'Playlist', Icons.queue_music_rounded, NadaIkon.lavender),
-      (Pintasan.cari, 'Cari lagu', Icons.search_rounded, NadaIkon.peach),
+      (Pintasan.cari, 'Cari lagu', Icons.search_rounded, NadaIkon.lavender),
     ];
     for (final (id, label, ikon, nada) in tetap) {
       if (petak.length >= 6) break;
@@ -402,7 +426,7 @@ class _RakPlaylist extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(width: 132, height: 132, child: _SampulPlaylistKotak(playlist: p)),
+                SampulPlaylist(playlist: p, ukuran: 132),
                 const SizedBox(height: 10),
                 Text(
                   p.nama,
@@ -424,38 +448,3 @@ class _RakPlaylist extends StatelessWidget {
   }
 }
 
-class _SampulPlaylistKotak extends StatelessWidget {
-  const _SampulPlaylistKotak({required this.playlist});
-
-  final Playlist playlist;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.mull;
-    final sampul = playlist.lagu
-        .map((t) => t.thumbUrl)
-        .where((u) => u != null && u.isNotEmpty)
-        .cast<String>()
-        .take(4)
-        .toList();
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(MullUkuran.sampul),
-      child: switch (sampul.length) {
-        0 => ColoredBox(
-            color: c.violetSoft,
-            child: Icon(Icons.queue_music_rounded, color: c.violet, size: 30),
-          ),
-        1 || 2 || 3 => GambarSampul(url: sampul.first, cadangan: ColoredBox(color: c.chipBg)),
-        _ => GridView.count(
-            crossAxisCount: 2,
-            padding: EdgeInsets.zero,
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              for (final u in sampul) GambarSampul(url: u, cadangan: ColoredBox(color: c.chipBg)),
-            ],
-          ),
-      },
-    );
-  }
-}

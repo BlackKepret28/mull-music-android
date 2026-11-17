@@ -1,33 +1,63 @@
 import 'package:flutter/material.dart';
 
+import '../aksi.dart';
 import '../services/download_service.dart';
+import '../services/library_service.dart';
 import '../widgets/artwork.dart';
 import '../theme.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/mull_ui.dart';
+import '../widgets/track_tile.dart';
+import 'video_screen.dart';
 
-/// Antrean dan riwayat unduhan.
-class DownloadsScreen extends StatelessWidget {
+/// Antrean unduhan + semua yang sudah tersimpan di HP.
+///
+/// Antrean cuma hidup selama app terbuka, jadi yang sudah selesai dibaca dari
+/// Music/Mull dan Movies/Mull (MediaStore). Dulu layar ini kosong lagi tiap
+/// app ditutup walau berkasnya masih ada.
+class DownloadsScreen extends StatefulWidget {
   const DownloadsScreen({super.key, this.onGoSearch});
 
   final VoidCallback? onGoSearch;
 
   @override
+  State<DownloadsScreen> createState() => _DownloadsScreenState();
+}
+
+class _DownloadsScreenState extends State<DownloadsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final l = LibraryService.instance;
+      if (l.kosong && !l.memuat) l.muat();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final service = DownloadService.instance;
+    final lib = LibraryService.instance;
 
     return ListenableBuilder(
-      listenable: service,
+      listenable: Listenable.merge([service, lib]),
       builder: (context, _) {
         final daftar = service.antrean;
         final aktif = daftar.where((u) => u.bisaDibatalkan).toList();
-        final lainnya = daftar.where((u) => !u.bisaDibatalkan).toList();
-        final adaSelesai = daftar.any((u) => u.status == StatusUnduhan.selesai);
+        // Yang selesai nggak ditampilkan di sini: sudah ada di "Sudah diunduh".
+        final lainnya = daftar
+            .where((u) => !u.bisaDibatalkan && u.status != StatusUnduhan.selesai)
+            .toList();
+        final lagu = lib.laguMull;
+        final video = lib.video;
+        final tersimpan = lagu.length + video.length;
 
         final ringkas = <String>[
           if (aktif.isNotEmpty) '${aktif.length} di antrean',
-          if (lainnya.isNotEmpty) '${lainnya.length} di riwayat',
+          if (tersimpan > 0) '$tersimpan tersimpan',
         ];
+
+        final kosong = aktif.isEmpty && lainnya.isEmpty && tersimpan == 0;
 
         return Scaffold(
           backgroundColor: Colors.transparent,
@@ -37,15 +67,8 @@ class DownloadsScreen extends StatelessWidget {
               subjudul: ringkas.isEmpty
                   ? 'Lagu dan video yang kamu simpan'
                   : ringkas.join('  ·  '),
-              aksi: [
-                if (adaSelesai)
-                  TautanAksi(
-                    label: 'Bersihkan',
-                    onTap: service.bersihkanSelesai,
-                  ),
-              ],
             ),
-            isi: (context, padding) => daftar.isEmpty
+            isi: (context, padding) => kosong
                 ? Padding(
                     padding: padding,
                     child: EmptyState(
@@ -53,7 +76,7 @@ class DownloadsScreen extends StatelessWidget {
                       title: 'Belum ada unduhan',
                       message: 'Santai dulu. Cari lagu, lalu ketuk titik tiga dan pilih Unduh lagu.',
                       action: FilledButton.icon(
-                        onPressed: onGoSearch,
+                        onPressed: widget.onGoSearch,
                         icon: const Icon(Icons.search_rounded, size: 20),
                         label: const Text('Cari lagu'),
                       ),
@@ -64,21 +87,45 @@ class DownloadsScreen extends StatelessWidget {
                     children: [
                       if (aktif.isNotEmpty) ...[
                         const LabelBagian('Sedang jalan'),
-                        for (final u in aktif)
-                          _Baris(unduhan: u, service: service),
+                        for (final u in aktif) _Baris(unduhan: u, service: service),
                       ],
                       if (lainnya.isNotEmpty) ...[
                         LabelBagian(
-                          'Riwayat',
+                          'Gagal atau dibatalkan',
+                          padding: EdgeInsets.fromLTRB(4, aktif.isEmpty ? 0 : 14, 0, 10),
+                        ),
+                        for (final u in lainnya) _Baris(unduhan: u, service: service),
+                      ],
+                      if (lagu.isNotEmpty) ...[
+                        LabelBagian(
+                          'Lagu tersimpan',
                           padding: EdgeInsets.fromLTRB(
                             4,
-                            aktif.isEmpty ? 0 : 14,
+                            aktif.isEmpty && lainnya.isEmpty ? 0 : 14,
                             0,
                             10,
                           ),
                         ),
-                        for (final u in lainnya)
-                          _Baris(unduhan: u, service: service),
+                        for (var i = 0; i < lagu.length; i++)
+                          TrackTile(
+                            track: lagu[i],
+                            margin: const EdgeInsets.symmetric(vertical: 5),
+                            onTap: () => putarDaftar(lagu, i),
+                          ),
+                      ],
+                      if (video.isNotEmpty) ...[
+                        const LabelBagian(
+                          'Video tersimpan',
+                          padding: EdgeInsets.fromLTRB(4, 14, 0, 10),
+                        ),
+                        for (final v in video)
+                          TrackTile(
+                            track: v,
+                            margin: const EdgeInsets.symmetric(vertical: 5),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => VideoScreen(track: v)),
+                            ),
+                          ),
                       ],
                       const PetunjukAkhir(
                         'Lagu tersimpan di Music/Mull, video di Movies/Mull.',

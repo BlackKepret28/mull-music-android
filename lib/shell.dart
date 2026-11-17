@@ -4,13 +4,17 @@ import 'package:flutter/material.dart';
 import 'models/track.dart';
 import 'screens/downloads_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/import_screen.dart';
 import 'screens/library_screen.dart';
 import 'screens/now_playing_screen.dart';
 import 'screens/search_screen.dart';
 import 'services/download_service.dart';
+import 'services/finder_service.dart';
+import 'services/import_service.dart';
 import 'services/player_service.dart';
 import 'services/playlist_service.dart';
 import 'services/recent_service.dart';
+import 'services/update_service.dart';
 import 'services/ytdlp_service.dart';
 import 'settings.dart';
 import 'ytdlp.dart';
@@ -40,10 +44,6 @@ class _AppShellState extends State<AppShell> {
   final _unduhan = DownloadService.instance;
   int _tab = 0;
 
-  /// Izin notifikasi cuma diminta sekali, pas pertama kali pengguna memutar
-  /// atau mengunduh sesuatu. Minta di layar pembuka cuma bikin bingung.
-  bool _izinDiminta = false;
-
   /// Jembatan Beranda -> Cari waktu tombol Tempel tautan ditekan.
   final _permintaanCari = ValueNotifier<String?>(null);
 
@@ -60,6 +60,15 @@ class _AppShellState extends State<AppShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PlaylistService.instance.muat();
       RecentService.instance.muat();
+      // Tanpa izin ini notifikasi pemutar (dan kontrol di layar kunci)
+      // nggak muncul di Android 13+. Diminta sekali waktu app dibuka.
+      _mintaIzinNotifikasi();
+      FinderService.instance.muat();
+      // Cek versi baru diam-diam (paling sering sekali sehari). Kalau ada,
+      // kartu kecil muncul di Beranda.
+      if (SettingsScope.of(context).waktunyaCekUpdate()) {
+        UpdateService.instance.cek(diam: true);
+      }
     });
   }
 
@@ -70,6 +79,13 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _tempelTautan(String tautan) {
+    // Tautan playlist (YouTube, Spotify) atau kode Mull: langsung ke Impor.
+    if (ImportService.tampakPlaylist(tautan)) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => ImportScreen(teksAwal: tautan)),
+      );
+      return;
+    }
     setState(() => _tab = 1);
     // Diset ulang ke null dulu supaya tautan yang sama bisa dikirim dua kali.
     _permintaanCari.value = null;
@@ -78,12 +94,7 @@ class _AppShellState extends State<AppShell> {
 
   void _goSearch() => setState(() => _tab = 1);
 
-  void _mintaIzinNotifikasi() {
-    if (_izinDiminta) return;
-    _izinDiminta = true;
-    // Gagal pun nggak apa-apa: musiknya tetap jalan, cuma tanpa notifikasi.
-    YtDlp.ensureNotificationPermission().ignore();
-  }
+  void _mintaIzinNotifikasi() => YtDlp.mintaIzinNotifikasi().ignore();
 
   /// Putar satu daftar mulai dari lagu yang diketuk, supaya tombol
   /// berikutnya/sebelumnya ada isinya.
@@ -219,7 +230,7 @@ class _BarPemutar extends StatelessWidget {
             state?.processingState == AudioProcessingState.buffering;
 
         return StreamBuilder<Duration>(
-          stream: player.positionStream,
+          stream: player.positionStreamLambat,
           builder: (context, snapPos) {
             final total = item.duration?.inMilliseconds ?? 0;
             final posisi = snapPos.data?.inMilliseconds ?? 0;

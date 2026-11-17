@@ -1,52 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../aksi.dart';
 import '../models/track.dart';
+import '../services/import_service.dart';
 import '../services/playlist_service.dart';
-import '../widgets/artwork.dart';
 import '../theme.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/mull_ui.dart';
+import '../widgets/sampul_playlist.dart';
 import '../widgets/track_tile.dart';
-
-/// Empat sampul pertama disusun jadi mozaik kecil.
-class _SampulPlaylist extends StatelessWidget {
-  const _SampulPlaylist({required this.playlist});
-
-  final Playlist playlist;
-
-  @override
-  Widget build(BuildContext context) {
-    final sampul = playlist.lagu
-        .map((t) => t.thumbUrl)
-        .where((u) => u != null && u.isNotEmpty)
-        .take(4)
-        .toList();
-
-    if (sampul.length < 4) {
-      return Artwork(
-        url: sampul.isEmpty ? null : sampul.first,
-        size: 48,
-        radius: 12,
-      );
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: SizedBox(
-        width: 48,
-        height: 48,
-        child: GridView.count(
-          crossAxisCount: 2,
-          padding: EdgeInsets.zero,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            for (final u in sampul) Artwork(url: u, size: 24, radius: 0),
-          ],
-        ),
-      ),
-    );
-  }
-}
+import '../ytdlp.dart';
+import 'import_screen.dart';
+import 'pilih_pustaka_screen.dart';
 
 /// Isi satu playlist.
 class PlaylistDetailScreen extends StatelessWidget {
@@ -63,6 +28,54 @@ class PlaylistDetailScreen extends StatelessWidget {
     );
     if (nama == null) return;
     await PlaylistService.instance.gantiNama(playlist, nama);
+  }
+
+  void _bagikan(BuildContext context) {
+    final b = ImportService.bagikan(playlist);
+    if (b.jumlah == 0) {
+      kabari(context, 'Belum ada lagu yang bisa dibagikan. Lagu dari HP tanpa tautan sumber nggak ikut.');
+      return;
+    }
+    tampilkanLembar<void>(
+      context,
+      judul: 'Bagikan playlist',
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          BarisMenu(
+            ikon: Icons.qr_code_rounded,
+            label: 'Kode playlist Mull',
+            keterangan: 'Buat teman yang pakai Mull, di HP atau laptop. Lagu dan urutannya sama persis.',
+            nada: NadaIkon.aksen,
+            onTap: () {
+              Navigator.pop(ctx);
+              YtDlp.shareText(
+                'Playlist "${playlist.nama}" (${b.jumlah} lagu). Tempel di Mull Music App, Impor:\n\n${b.kode}',
+                title: 'Bagikan kode playlist',
+              );
+            },
+          ),
+          BarisMenu(
+            ikon: Icons.format_list_bulleted_rounded,
+            label: 'Daftar lagu',
+            keterangan: 'Judul, artis, dan tautan YouTube. Bisa dibaca siapa saja.',
+            nada: NadaIkon.mint,
+            onTap: () {
+              Navigator.pop(ctx);
+              YtDlp.shareText(b.teks, title: 'Bagikan daftar lagu');
+            },
+          ),
+          if (b.dilewati > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 4, 22, 0),
+              child: Text(
+                '${b.dilewati} lagu dari HP nggak ikut karena nggak punya tautan sumber.',
+                style: TextStyle(fontSize: 12.5, color: ctx.mull.textMuted),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _hapus(BuildContext context) async {
@@ -118,11 +131,27 @@ class PlaylistDetailScreen extends StatelessWidget {
                       tooltip: 'Opsi lain',
                       icon: Icon(Icons.more_vert_rounded, color: c.icon),
                       onSelected: (v) => switch (v) {
+                        'bagikan' => _bagikan(context),
+                        'pustaka' => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => PilihPustakaScreen(playlist: playlist)),
+                          ),
+                        'cariPustaka' => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => PilihPustakaScreen(playlist: playlist, langsungCari: true),
+                            ),
+                          ),
+                        'impor' => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => ImportScreen(ke: playlist)),
+                          ),
                         'nama' => _gantiNama(context),
                         'hapus' => _hapus(context),
                         _ => null,
                       },
                       itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'bagikan', child: Text('Bagikan')),
+                        PopupMenuItem(value: 'cariPustaka', child: Text('Cari di Pustaka')),
+                        PopupMenuItem(value: 'pustaka', child: Text('Tambah dari Pustaka')),
+                        PopupMenuItem(value: 'impor', child: Text('Impor dari tautan')),
                         PopupMenuItem(value: 'nama', child: Text('Ganti nama')),
                         PopupMenuItem(
                           value: 'hapus',
@@ -145,20 +174,38 @@ class PlaylistDetailScreen extends StatelessWidget {
                               ),
                               label: const Text('Putar semua'),
                             ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              onPressed: () => putarAcak(lagu),
+                              icon: const Icon(Icons.shuffle_rounded, size: 18),
+                              label: const Text('Acak'),
+                            ),
                           ],
                         ),
                 ),
                 isi: (context, padding) => lagu.isEmpty
-                    ? Padding(
+                    ? ListView(
                         padding: padding,
-                        child: const EmptyState(
-                          icon: Icons.queue_music_rounded,
-                          title: 'Playlist ini masih kosong',
-                          message: 'Tambahkan lagu lewat titik tiga di hasil Cari atau di Pustaka.',
-                        ),
+                        children: [
+                          _SampulBesar(playlist: playlist),
+                          const SizedBox(height: 24),
+                          EmptyState(
+                            icon: Icons.queue_music_rounded,
+                            title: 'Playlist ini masih kosong',
+                            message: 'Pilih lagu dari Pustaka, atau impor dari tautan lewat titik tiga di atas.',
+                            action: FilledButton.icon(
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => PilihPustakaScreen(playlist: playlist)),
+                              ),
+                              icon: const Icon(Icons.library_music_rounded, size: 20),
+                              label: const Text('Tambah dari Pustaka'),
+                            ),
+                          ),
+                        ],
                       )
                     : ReorderableListView.builder(
                         padding: padding,
+                        header: _SampulBesar(playlist: playlist),
                         itemCount: lagu.length,
                         footer: const PetunjukAkhir(
                           'Tahan lagu buat ganti urutan, geser ke kiri buat buang dari playlist.',
@@ -201,6 +248,32 @@ class PlaylistDetailScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Sampul besar di atas daftar lagu (ala versi Windows): mozaik dari
+/// lagu-lagunya, ikut berubah begitu isi playlist berubah.
+class _SampulBesar extends StatelessWidget {
+  const _SampulBesar({required this.playlist});
+
+  final Playlist playlist;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.mull;
+    final sisi = (MediaQuery.sizeOf(context).width * 0.56).clamp(160.0, 260.0);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+      child: Center(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [BoxShadow(color: c.shadow, blurRadius: 30, offset: const Offset(0, 12))],
+          ),
+          child: SampulPlaylist(playlist: playlist, ukuran: sisi, radius: 22),
+        ),
+      ),
     );
   }
 }
@@ -271,7 +344,7 @@ Future<void> tampilkanTambahKePlaylist(BuildContext context, Track t) async {
           for (final p in service.daftar)
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 22),
-              leading: _SampulPlaylist(playlist: p),
+              leading: SampulPlaylist(playlist: p, ukuran: 48, radius: 12),
               title: Text(p.nama, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text('${p.lagu.length} lagu'),
               onTap: () async {

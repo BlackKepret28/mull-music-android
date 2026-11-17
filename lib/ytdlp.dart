@@ -104,13 +104,106 @@ class YtDlp {
     return b is Uint8List ? b : null;
   }
 
-  static Future<bool> deleteMedia(String uri) async =>
-      (await _call('deleteMedia', {'uri': uri}))['deleted'] == true;
+  /// Hapus satu berkas. Berkas yang bukan milik app memunculkan dialog
+  /// konfirmasi dari Android; `dibatalkan` true kalau pengguna menolak.
+  static Future<({bool terhapus, bool dibatalkan})> deleteMedia(String uri) async {
+    final r = await _call('deleteMedia', {'uri': uri});
+    return (terhapus: r['deleted'] == true, dibatalkan: r['canceled'] == true);
+  }
+
+  // ---- Kenali lagu -------------------------------------------------------
+
+  /// Potongan audio jadi PCM 16-bit mono 16 kHz. [source]: uri content://,
+  /// path berkas, atau URL http (boleh pakai [headers]).
+  static Future<({Uint8List pcm, int? durasiMs})> decodePcm(
+    String source, {
+    Map<String, String>? headers,
+    int startMs = 0,
+    int lengthMs = 12000,
+  }) async {
+    final r = await _call('decodePcm', {
+      'source': source,
+      'headers': headers,
+      'startMs': startMs,
+      'lengthMs': lengthMs,
+    });
+    return (
+      pcm: (r['pcm'] as Uint8List?) ?? Uint8List(0),
+      durasiMs: (r['durationMs'] as num?)?.toInt(),
+    );
+  }
+
+  static Future<bool> ensureMicPermission() async =>
+      (await _call('ensureMicPermission'))['granted'] == true;
+
+  static Future<void> micStart() => _call('micStart');
+  static Future<void> micStop() => _call('micStop');
+
+  static Future<({double level, double detik})> micStatus() async {
+    final r = await _call('micStatus');
+    return (
+      level: (r['level'] as num?)?.toDouble() ?? 0,
+      detik: (r['seconds'] as num?)?.toDouble() ?? 0,
+    );
+  }
+
+  /// PCM [detik] detik terakhir dari mikrofon.
+  static Future<Uint8List> micSnapshot(double detik) async =>
+      ((await _call('micSnapshot', {'seconds': detik}))['pcm'] as Uint8List?) ?? Uint8List(0);
+
+  // ---- Update app ----------------------------------------------------------
+
+  static Future<({String versi, int kode, List<String> abi})> appInfo() async {
+    final r = await _call('appInfo');
+    return (
+      versi: (r['versionName'] as String?) ?? '0.0.0',
+      kode: (r['versionCode'] as num?)?.toInt() ?? 0,
+      abi: ((r['abis'] as List?) ?? const []).cast<String>(),
+    );
+  }
+
+  /// Sudah boleh memasang APK dari app ini ("Instal aplikasi tak dikenal")?
+  static Future<bool> canInstall() async => (await _call('canInstall'))['granted'] == true;
+
+  /// Buka halaman izin "Instal aplikasi tak dikenal" buat Mull.
+  static Future<void> openInstallPermission() => _call('openInstallPermission');
+
+  /// Serahkan APK di [path] (harus di folder cache/update) ke penginstal Android.
+  static Future<void> installApk(String path) => _call('installApk', {'path': path});
+
+  /// Buka tautan di browser HP.
+  static Future<void> openUrl(String url) => _call('openUrl', {'url': url});
+
+  /// Lembar Bagikan Android.
+  static Future<void> shareText(String text, {String title = 'Bagikan'}) =>
+      _call('shareText', {'text': text, 'title': title});
 
   /// Minta izin notifikasi (Android 13+). Tanpa ini, notifikasi pemutar dan
   /// kontrol di layar kunci nggak muncul.
   static Future<bool> ensureNotificationPermission() async =>
       (await _call('ensureNotificationPermission'))['granted'] == true;
+
+  static Future<bool> hasNotificationPermission() async =>
+      (await _call('hasNotificationPermission'))['granted'] == true;
+
+  static Future<void> openNotificationSettings() => _call('openNotificationSettings');
+
+  static bool _izinNotifDiminta = false;
+
+  /// Minta izin notifikasi (Android 13+). Satu pintu buat semua layar.
+  /// Cuma "dikunci" kalau sudah diizinkan, jadi kalau tadinya ditolak atau
+  /// dialognya nggak sempat muncul, putar lagu berikutnya mencoba lagi
+  /// (Android sendiri yang membatasi berapa kali dialog boleh tampil).
+  static Future<bool> mintaIzinNotifikasi() async {
+    if (_izinNotifDiminta) return true;
+    try {
+      final ok = await ensureNotificationPermission();
+      _izinNotifDiminta = ok;
+      return ok;
+    } catch (_) {
+      return false;
+    }
+  }
 
   static Future<bool> autorun() async => (await _call('launchArgs'))['autorun'] == true;
 

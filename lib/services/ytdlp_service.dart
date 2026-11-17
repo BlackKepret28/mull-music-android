@@ -47,6 +47,11 @@ class YtDlpService extends ChangeNotifier {
   final _cacheCari = <String, List<Track>>{};
   final _cacheStream = <String, _UrlTersimpan>{};
 
+  /// Permintaan URL yang lagi dikerjakan. Kalau prefetch lagu berikutnya
+  /// masih jalan lalu pengguna menekan lagu itu, dia menumpang di proses yang
+  /// sama (dulu jadi dua proses yt-dlp, dua kali 30 detik).
+  final _sedangDiambil = <String, Future<String>>{};
+
   void _set(EngineStatus s, {String langkah = '', String? error}) {
     _status = s;
     _langkah = langkah;
@@ -189,9 +194,14 @@ class YtDlpService extends ChangeNotifier {
   /// baru opus, baru apa pun yang ada.
   static const _formatAudio = 'bestaudio[ext=m4a]/bestaudio[acodec=opus]/bestaudio';
 
-  /// Video: utamakan H.264 (avc1) daripada AV1 supaya HP lama nggak tersiksa.
+  /// Video buat DIPUTAR LANGSUNG harus satu URL yang sudah berisi gambar dan
+  /// suara. Format `bv*+ba` ngasih dua URL terpisah (video saja + audio
+  /// saja), dan pemutar cuma kebagian yang pertama = video bisu. HLS
+  /// campuran (m3u8) YouTube bisa sampai 720p dan didukung ExoPlayer, jadi
+  /// kualitasnya nggak turun ke 360p. Urutan: HLS H.264 -> HLS apa saja ->
+  /// berkas campuran biasa.
   static const _formatVideo =
-      'bv*[height<=720][vcodec^=avc1]+ba[ext=m4a]/b[height<=720][vcodec^=avc1]/bv*[height<=720]+ba/b[height<=720]';
+      'b[height<=720][protocol^=m3u8][vcodec^=avc1]/b[height<=720][protocol^=m3u8]/b[height<=720][vcodec^=avc1]/b[height<=720]/b';
 
   /// Klien YouTube yang biasanya nggak butuh JavaScript buat kasih URL.
   /// Kalau gagal, kita ulang tanpa ini dan biarkan QuickJS kerja (lambat).
@@ -201,11 +211,20 @@ class YtDlpService extends ChangeNotifier {
   ///
   /// Ini bagian yang mahal: tanpa jalur cepat, QuickJS butuh 25-35 detik.
   /// Hasilnya disimpan karena URL YouTube berlaku beberapa jam.
-  Future<String> streamUrl(Track t, {bool video = false}) async {
+  Future<String> streamUrl(Track t, {bool video = false}) {
     final kunci = '${t.id}|$video';
     final tersimpan = _cacheStream[kunci];
-    if (tersimpan != null && !tersimpan.kedaluwarsa) return tersimpan.url;
+    if (tersimpan != null && !tersimpan.kedaluwarsa) return Future.value(tersimpan.url);
 
+    final jalan = _sedangDiambil[kunci];
+    if (jalan != null) return jalan;
+
+    final f = _ambilUrl(t, kunci, video).whenComplete(() => _sedangDiambil.remove(kunci));
+    _sedangDiambil[kunci] = f;
+    return f;
+  }
+
+  Future<String> _ambilUrl(Track t, String kunci, bool video) async {
     await ensureReady();
 
     final format = video ? _formatVideo : _formatAudio;
@@ -221,6 +240,11 @@ class YtDlpService extends ChangeNotifier {
           format,
           '--no-playlist',
           '--no-warnings',
+          // Gagal cepat kalau jaringan macet, biar jalur cadangan nggak telat.
+          '--socket-timeout',
+          '10',
+          '--retries',
+          '1',
           if (cepat) ..._klienCepat,
           url,
         ];
@@ -229,8 +253,6 @@ class YtDlpService extends ChangeNotifier {
           galatTerakhir = Exception((r['err'] as String?) ?? 'exit ${r['exitCode']}');
           continue;
         }
-        // `-g` nyetak satu URL per baris. Buat audio cuma ada satu;
-        // buat video bisa dua (video + audio terpisah).
         final baris = (r['out'] as String? ?? '')
             .split('\n')
             .map((l) => l.trim())
