@@ -115,7 +115,7 @@ class MainActivity : AudioServiceActivity() {
                 deleteMedia(Uri.parse(call.argument<String>("uri")!!), result)
                 return@setMethodCallHandler
             }
-            if (call.method in setOf("openInstallPermission", "installApk", "shareText", "openUrl", "openNotificationSettings")) {
+            if (call.method in setOf("openInstallPermission", "installApk", "shareText", "openUrl", "openNotificationSettings", "openBatterySettings")) {
                 // Membuka activity lain: harus dari main thread.
                 try {
                     result.success(handleUi(call))
@@ -330,6 +330,20 @@ class MainActivity : AudioServiceActivity() {
                     .setDataAndType(uri, "application/vnd.android.package-archive")
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
             )
+            mapOf("ok" to true)
+        }
+        "openBatterySettings" -> {
+            try {
+                startActivity(
+                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            } catch (e: Exception) {
+                startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:$packageName"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
             mapOf("ok" to true)
         }
         "openNotificationSettings" -> {

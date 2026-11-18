@@ -120,7 +120,7 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
         p.seek(Duration.zero);
         return;
       }
-      skipToNext();
+      _lanjutOtomatis();
     });
   }
 
@@ -354,16 +354,27 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
     await _player.seek(position);
   }
 
-  @override
-  Future<void> skipToNext() async {
+  /// Lagu habis sendiri: ulang-satu memutar lagu yang sama lagi.
+  Future<void> _lanjutOtomatis() async {
     if (_ulang == AudioServiceRepeatMode.one) {
       await seek(Duration.zero);
       await play();
       return;
     }
+    await _keBerikutnya();
+  }
+
+  /// Tombol Berikutnya (app maupun notifikasi) selalu pindah lagu, juga saat
+  /// mode ulang-satu menyala (dulu malah memutar lagu yang sama).
+  @override
+  Future<void> skipToNext() => _keBerikutnya();
+
+  Future<void> _keBerikutnya() async {
+    final ulangSemua =
+        _ulang == AudioServiceRepeatMode.all || _ulang == AudioServiceRepeatMode.one;
     if (_pos + 1 < _urut.length) {
       await _putarPosisi(_pos + 1);
-    } else if (_ulang == AudioServiceRepeatMode.all && _urut.isNotEmpty) {
+    } else if (ulangSemua && _urut.isNotEmpty) {
       await _putarPosisi(0);
     } else {
       await stop();

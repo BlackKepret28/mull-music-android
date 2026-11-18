@@ -45,7 +45,21 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const _Jarak(),
                 const LabelBagian('Pemutar'),
-                const _Kartu(children: [_BarisNotifikasi()]),
+                _Kartu(
+                  children: [
+                    const _BarisNotifikasi(),
+                    const Divider(indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: const KotakIkon(ikon: Icons.battery_saver_rounded, nada: NadaIkon.peach, ukuran: 38),
+                      title: const Text('Jalan di latar belakang'),
+                      subtitle: const Text(
+                        'Kalau musik atau notifikasi hilang saat layar mati, set baterai Mull ke "Tanpa batasan".',
+                      ),
+                      trailing: Icon(Icons.chevron_right_rounded, color: context.mull.textSubtle),
+                      onTap: () => YtDlp.openBatterySettings(),
+                    ),
+                  ],
+                ),
                 const _Jarak(),
                 const LabelBagian('Unduhan'),
                 _Kartu(
@@ -101,7 +115,7 @@ class SettingsScreen extends StatelessWidget {
                       leading: const KotakIkon(ikon: Icons.system_update_rounded, nada: NadaIkon.aksen, ukuran: 38),
                       title: const Text('Cek update'),
                       subtitle: FutureBuilder<String>(
-                        future: UpdateService.instance.versiApp(),
+                        future: UpdateService.instance.versiLengkap(),
                         builder: (context, snap) => Text(
                           snap.hasData ? 'Mull Music App ${snap.data}' : 'Mull Music App',
                         ),

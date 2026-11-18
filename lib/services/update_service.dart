@@ -82,6 +82,17 @@ class UpdateService extends ChangeNotifier {
   String? _versiSekarang;
   String? get versiSekarang => _versiSekarang;
 
+  /// Diisi CI lewat --dart-define=BUILD_SHA=<7 huruf commit>. Build lokal: 'lokal'.
+  static const _sha = String.fromEnvironment('BUILD_SHA', defaultValue: 'lokal');
+
+  /// "1.0.0 · build 12 · abc1234". Nomor build dan commit beda di tiap build
+  /// CI, jadi ini cara tahu app yang terpasang itu yang paling baru atau bukan.
+  /// (versionCode dari split-per-abi diawali 1000/2000/4000, jadi diambil sisanya.)
+  Future<String> versiLengkap() async {
+    final info = await YtDlp.appInfo();
+    return '${info.versi} · build ${info.kode % 1000} · $_sha';
+  }
+
   /// 0..1 selama mengunduh.
   double _progres = 0;
   double get progres => _progres;

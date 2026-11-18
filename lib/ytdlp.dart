@@ -188,6 +188,10 @@ class YtDlp {
 
   static Future<void> openNotificationSettings() => _call('openNotificationSettings');
 
+  /// Daftar "Optimalisasi baterai" Android, buat mengecualikan Mull supaya
+  /// ROM yang agresif (Infinix/XOS dkk.) nggak mematikan pemutar di latar.
+  static Future<void> openBatterySettings() => _call('openBatterySettings');
+
   static bool _izinNotifDiminta = false;
 
   /// Minta izin notifikasi (Android 13+). Satu pintu buat semua layar.

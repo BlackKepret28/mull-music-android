@@ -86,7 +86,10 @@ jobs:
 
       # --split-per-abi bikin satu APK per arsitektur, jadi ukurannya jauh
       # lebih kecil daripada satu APK gabungan.
-      - run: flutter build apk --release --split-per-abi
+      # Nomor build = nomor run (naik terus) dan 7 huruf commit ikut ditanam,
+      # tampil di Pengaturan > Tentang. Tanpa ini semua build kembar versinya.
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi --build-number=${{ github.run_number }} --dart-define=BUILD_SHA=${GITHUB_SHA::7}
 
       - name: Bikin sha256
         working-directory: build/app/outputs/flutter-apk
