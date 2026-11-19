@@ -294,7 +294,61 @@ class MainActivity : AudioServiceActivity() {
                 mic.stop()
                 mapOf("ok" to true)
             }
-            "appInfo" -> {
+            "diagNotifikasi" -> {
+            val nm = getSystemService(android.app.NotificationManager::class.java)
+            val saluran = nm.notificationChannels.map { "${it.id} | ${it.name} | penting=${it.importance}" }
+            val aktif = nm.activeNotifications.map {
+                val judul = it.notification.extras.getCharSequence(android.app.Notification.EXTRA_TITLE)
+                val ongoing = (it.notification.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0
+                "id=${it.id} kanal=${it.notification.channelId} judul=$judul ongoing=$ongoing"
+            }
+            @Suppress("DEPRECATION")
+            val am = getSystemService(android.app.ActivityManager::class.java)
+            @Suppress("DEPRECATION")
+            val layanan = am.getRunningServices(200)
+                .any { it.service.className == "com.ryanheise.audioservice.AudioService" }
+            val pm = getSystemService(android.os.PowerManager::class.java)
+            mapOf(
+                "notifAktif" to nm.areNotificationsEnabled(),
+                "saluran" to saluran,
+                "notifikasi" to aktif,
+                "layananJalan" to layanan,
+                "bebasBaterai" to pm.isIgnoringBatteryOptimizations(packageName),
+                "sdk" to Build.VERSION.SDK_INT,
+                "perangkat" to "${Build.MANUFACTURER} ${Build.MODEL}",
+            )
+        }
+        "testNotification" -> {
+            val nm = getSystemService(android.app.NotificationManager::class.java)
+            nm.createNotificationChannel(
+                android.app.NotificationChannel(
+                    "mull_tes",
+                    "Tes notifikasi",
+                    android.app.NotificationManager.IMPORTANCE_DEFAULT,
+                )
+            )
+            val n = androidx.core.app.NotificationCompat.Builder(this, "mull_tes")
+                .setSmallIcon(R.drawable.ic_stat_mull)
+                .setContentTitle("Tes notifikasi Mull")
+                .setContentText("Kalau ini muncul, izin dan kanal notifikasi aman.")
+                .setAutoCancel(true)
+                .build()
+            nm.notify(4242, n)
+            mapOf("ok" to true)
+        }
+        "getLogcat" -> {
+            // Log milik app ini sendiri (Android nggak ngasih log app lain).
+            val proses = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-v", "time", "-t", "3000"))
+            val semua = proses.inputStream.bufferedReader().readLines()
+            proses.destroy()
+            val kunci = Regex(
+                "audioservice|MediaSession|Notification|Foreground|AndroidRuntime|FATAL|mullmusic|ActivityManager|ExoPlayer|just_audio|flutter",
+                RegexOption.IGNORE_CASE,
+            )
+            val pilih = semua.filter { kunci.containsMatchIn(it) || it.contains(" E/") }.takeLast(500)
+            mapOf("log" to pilih.joinToString("\n").takeLast(100_000))
+        }
+        "appInfo" -> {
                 val pi = packageManager.getPackageInfo(packageName, 0)
                 mapOf(
                     "versionName" to pi.versionName,

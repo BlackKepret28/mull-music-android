@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../models/track.dart';
+import '../ytdlp.dart';
+import 'log_service.dart';
 import 'recent_service.dart';
 import 'ytdlp_service.dart';
 
@@ -124,7 +126,15 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
     });
   }
 
+  String _stateTerakhir = '';
+  int _probeKali = 0;
+
   void _siarkan({bool memuat = false, bool mati = false}) {
+    final ringkas = 'playing=${_p?.playing} proses=${_p?.processingState.name} memuat=$memuat mati=$mati';
+    if (ringkas != _stateTerakhir) {
+      _stateTerakhir = ringkas;
+      LogService.instance.catat('state', ringkas);
+    }
     final p = _p;
     final main = p?.playing ?? false;
 
@@ -270,6 +280,26 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
     _siarkan();
   }
 
+  /// 4 detik setelah lagu mulai, tanya sistem apakah layanan pemutar jalan dan
+  /// notifikasinya terpasang, lalu tulis ke log. Cuma 3 kali per sesi.
+  void _periksaNotifikasi(int aku) {
+    if (_probeKali >= 3) return;
+    _probeKali++;
+    Future<void>.delayed(const Duration(seconds: 4), () async {
+      if (aku != _token) return;
+      try {
+        final d = await YtDlp.diagNotifikasi();
+        LogService.instance.catat(
+          'notif',
+          'playing=${_p?.playing} layananJalan=${d['layananJalan']} notifAktif=${d['notifAktif']} '
+              'notifikasi=${d['notifikasi']} saluran=${d['saluran']}',
+        );
+      } catch (e) {
+        LogService.instance.catat('notif', 'diagnostik gagal: $e');
+      }
+    });
+  }
+
   /// Pindah ke posisi tertentu di [_urut].
   Future<void> _putarPosisi(int pos) async {
     if (pos < 0 || pos >= _urut.length) return;
@@ -314,8 +344,10 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
       unawaited(_player.play().catchError((Object e) {
         if (aku != _token) return;
         galat.value = e.toString().replaceFirst('Exception: ', '');
+        LogService.instance.catat('play', 'play() gagal: $e');
         _siarkan(mati: true);
       }));
+      _periksaNotifikasi(aku);
       // Dicatat setelah sumbernya berhasil dimuat, supaya lagu yang gagal
       // diputar nggak ikut masuk "Baru diputar".
       RecentService.instance.catat(t).ignore();

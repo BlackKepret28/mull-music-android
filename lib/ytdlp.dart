@@ -192,6 +192,15 @@ class YtDlp {
   /// ROM yang agresif (Infinix/XOS dkk.) nggak mematikan pemutar di latar.
   static Future<void> openBatterySettings() => _call('openBatterySettings');
 
+  /// Status notifikasi + layanan pemutar buat layar Diagnostik.
+  static Future<Map<String, dynamic>> diagNotifikasi() => _call('diagNotifikasi');
+
+  /// Kirim notifikasi biasa (bukan pemutar) buat ngetes izin dan kanal.
+  static Future<void> testNotification() => _call('testNotification');
+
+  /// Log sistem milik app ini, sudah disaring (error, layanan, notifikasi).
+  static Future<String> getLogcat() async => ((await _call('getLogcat'))['log'] as String?) ?? '';
+
   static bool _izinNotifDiminta = false;
 
   /// Minta izin notifikasi (Android 13+). Satu pintu buat semua layar.

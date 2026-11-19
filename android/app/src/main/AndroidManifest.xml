@@ -76,6 +76,12 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Ikon notifikasi pemutar dipanggil lewat nama dari kode Dart. Rujukan
+             ini membuat penyusut resource R8 tetap menyimpannya di APK rilis. -->
+        <meta-data
+            android:name="com.mulya.mullmusic.NOTIF_ICON"
+            android:resource="@drawable/ic_stat_mull" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -8,6 +8,7 @@ import '../theme.dart';
 import '../widgets/mull_ui.dart';
 import '../widgets/update_ui.dart';
 import '../ytdlp.dart';
+import 'diagnostik_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -57,6 +58,16 @@ class SettingsScreen extends StatelessWidget {
                       ),
                       trailing: Icon(Icons.chevron_right_rounded, color: context.mull.textSubtle),
                       onTap: () => YtDlp.openBatterySettings(),
+                    ),
+                    const Divider(indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: const KotakIkon(ikon: Icons.bug_report_rounded, nada: NadaIkon.lavender, ukuran: 38),
+                      title: const Text('Diagnostik pemutar dan log'),
+                      subtitle: const Text('Cek kenapa notifikasi nggak muncul, tes notifikasi, dan simpan log error.'),
+                      trailing: Icon(Icons.chevron_right_rounded, color: context.mull.textSubtle),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const DiagnostikScreen()),
+                      ),
                     ),
                   ],
                 ),

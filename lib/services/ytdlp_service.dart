@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../models/track.dart';
 import '../ytdlp.dart';
 import 'innertube.dart';
+import 'log_service.dart';
 
 enum EngineStatus { belum, nyiapin, siap, gagal }
 
@@ -260,19 +261,24 @@ class YtDlpService extends ChangeNotifier {
     void mulaiYtDlp() {
       if (ytdlpJalan || hasil.isCompleted) return;
       ytdlpJalan = true;
+      final mulaiYt = DateTime.now();
       _ambilDariYtDlp(t, kunci, false).then((u) {
+        LogService.instance.catat('url', 'yt-dlp OK ${DateTime.now().difference(mulaiYt).inMilliseconds} ms (${t.id})');
         if (!hasil.isCompleted) hasil.complete(u);
       }, onError: (Object e, StackTrace s) {
         if (!hasil.isCompleted) hasil.completeError(e, s);
       });
     }
 
+    final mulai = DateTime.now();
     Innertube.audio(t.id).then((u) {
+      LogService.instance.catat('url', 'kilat OK ${DateTime.now().difference(mulai).inMilliseconds} ms (${t.id})');
       _kilatGagalBeruntun = 0;
       _headerUrl[u] = const {'User-Agent': Innertube.userAgent};
       _cacheStream[kunci] = _UrlTersimpan(u);
       if (!hasil.isCompleted) hasil.complete(u);
     }, onError: (Object e, StackTrace s) {
+      LogService.instance.catat('url', 'kilat GAGAL (${t.id}): $e');
       _kilatGagalBeruntun++;
       if (boleYtDlp) {
         mulaiYtDlp();
