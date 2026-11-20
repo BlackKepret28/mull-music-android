@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'log_service.dart';
+
 /// Jalur kilat buat ambil URL audio YouTube: satu permintaan HTTP langsung ke
 /// API internal YouTube (cara yang sama dipakai app YouTube di headset VR),
 /// tanpa menjalankan Python/yt-dlp. Hasilnya ~1 detik, bukan 10-30 detik.
@@ -72,6 +74,49 @@ class Innertube {
     return terbaik?['url'] as String?;
   }
 
+  /// Cadangan: berkas campuran (gambar + suara, biasanya itag 18, 360p). Sejak
+  /// Juli 2026 klien android_vr cuma ngasih URL buat format ini tanpa PO token,
+  /// sedangkan format audio-saja nggak punya URL. Pemutar cuma memakai suaranya,
+  /// jadi kuota terpakai lebih banyak daripada audio-saja. Dipilih yang
+  /// bitrate-nya paling kecil.
+  static String? pilihCampuran(Map<String, dynamic> json) {
+    final status = json['playabilityStatus'];
+    if (status is! Map || status['status'] != 'OK') return null;
+    final data = json['streamingData'];
+    if (data is! Map) return null;
+    final formats = data['formats'];
+    if (formats is! List) return null;
+
+    Map? terbaik;
+    var bitrateTerkecil = 1 << 62;
+    for (final f in formats.whereType<Map>()) {
+      final url = f['url'];
+      if (url is! String || url.isEmpty) continue;
+      final mime = f['mimeType']?.toString() ?? '';
+      if (!mime.startsWith('video/mp4') || f['audioQuality'] == null) continue;
+      final bitrate = (f['bitrate'] as num?)?.toInt() ?? bitrateTerkecil - 1;
+      if (bitrate < bitrateTerkecil) {
+        terbaik = f;
+        bitrateTerkecil = bitrate;
+      }
+    }
+    return terbaik?['url'] as String?;
+  }
+
+  /// Ringkasan kenapa nggak ada URL, buat log.
+  static String alasan(Map<String, dynamic> json) {
+    final status = json['playabilityStatus'];
+    final st = status is Map ? '${status['status']} ${status['reason'] ?? ''}'.trim() : 'tanpa status';
+    final data = json['streamingData'];
+    int hitung(Object? l, {bool denganUrl = false}) => l is List
+        ? l.whereType<Map>().where((f) => !denganUrl || (f['url'] is String)).length
+        : 0;
+    final adaptif = data is Map ? data['adaptiveFormats'] : null;
+    final campuran = data is Map ? data['formats'] : null;
+    return 'status=$st adaptif=${hitung(adaptif)} (berURL=${hitung(adaptif, denganUrl: true)}) '
+        'campuran=${hitung(campuran)} (berURL=${hitung(campuran, denganUrl: true)})';
+  }
+
   /// Ambil URL audio. Melempar kalau gagal atau URL-nya ditolak server.
   static Future<String> audio(String videoId) async {
     final klien = HttpClient()..connectionTimeout = const Duration(seconds: 5);
@@ -94,8 +139,13 @@ class Innertube {
       }
       final teks = await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 8));
       final json = jsonDecode(teks);
-      final url = json is Map<String, dynamic> ? pilihAudio(json) : null;
-      if (url == null) throw Exception('Jalur kilat nggak ngasih URL audio');
+      final peta = json is Map<String, dynamic> ? json : <String, dynamic>{};
+      var url = pilihAudio(peta);
+      if (url == null) {
+        url = pilihCampuran(peta);
+        if (url == null) throw Exception('Jalur kilat kosong: ${alasan(peta)}');
+        LogService.instance.catat('kilat', 'audio-saja nggak ada, pakai berkas campuran 360p (${alasan(peta)})');
+      }
 
       await _periksa(klien, url);
       return url;

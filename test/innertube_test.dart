@@ -44,6 +44,32 @@ void main() {
       expect(Innertube.pilihAudio(json), 'https://x/128000');
     });
 
+    test('pilihCampuran ambil berkas gambar+suara bitrate terkecil', () {
+      final json = {
+        'playabilityStatus': {'status': 'OK'},
+        'streamingData': {
+          'formats': [
+            {'mimeType': 'video/mp4; codecs="avc1, mp4a"', 'bitrate': 700000, 'audioQuality': 'AUDIO_QUALITY_LOW', 'url': 'https://x/720'},
+            {'mimeType': 'video/mp4; codecs="avc1, mp4a"', 'bitrate': 400000, 'audioQuality': 'AUDIO_QUALITY_LOW', 'url': 'https://x/360'},
+            {'mimeType': 'video/mp4; codecs="avc1"', 'bitrate': 100000, 'url': 'https://x/tanpa-suara'},
+          ],
+          'adaptiveFormats': [
+            {'mimeType': 'audio/mp4', 'bitrate': 128000},
+          ],
+        },
+      };
+      expect(Innertube.pilihAudio(json), isNull);
+      expect(Innertube.pilihCampuran(json), 'https://x/360');
+    });
+
+    test('alasan merangkum status dan jumlah format', () {
+      final teks = Innertube.alasan({
+        'playabilityStatus': {'status': 'LOGIN_REQUIRED', 'reason': 'Sign in'},
+      });
+      expect(teks, contains('LOGIN_REQUIRED'));
+      expect(teks, contains('adaptif=0'));
+    });
+
     test('pilihAudio null kalau tidak OK atau tanpa URL', () {
       expect(Innertube.pilihAudio({'playabilityStatus': {'status': 'LOGIN_REQUIRED'}}), isNull);
       expect(

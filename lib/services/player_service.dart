@@ -294,6 +294,10 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
           'playing=${_p?.playing} layananJalan=${d['layananJalan']} notifAktif=${d['notifAktif']} '
               'notifikasi=${d['notifikasi']} saluran=${d['saluran']}',
         );
+        // Log sistem pada saat ini (buffer Android pendek, nanti keburu terhapus).
+        final lc = (await YtDlp.getLogcat()).split('\n');
+        final ekor = lc.length > 40 ? lc.sublist(lc.length - 40) : lc;
+        LogService.instance.catat('logcat', ekor.join('\n'));
       } catch (e) {
         LogService.instance.catat('notif', 'diagnostik gagal: $e');
       }
@@ -454,6 +458,12 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
 
 /// Dipanggil sekali dari `main()`.
 Future<void> initAudio() async {
+  // audio_service menelan semua error dari sisi Android (mis. gagal membuat
+  // notifikasi) dan cuma menaruhnya di stream ini. Tanpa pendengar, error itu
+  // nggak pernah kelihatan. Sekarang dicatat ke log.
+  AudioService.asyncError.listen(
+    (e) => LogService.instance.catat('audio_service', 'ERROR dari sisi Android: $e'),
+  );
   await AudioService.init(
     builder: () => MullAudioHandler.instance,
     config: const AudioServiceConfig(
