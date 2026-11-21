@@ -62,8 +62,10 @@ class _AppShellState extends State<AppShell> {
       // Dua lagu teratas di "Baru diputar" paling mungkin diputar lagi:
       // siapkan URL-nya lewat jalur kilat (murah, tanpa Python).
       RecentService.instance.muat().then((_) {
-        for (final t in RecentService.instance.daftar.where((t) => t.localPath == null).take(2)) {
-          YtDlpService.instance.prefetch(t, boleYtDlp: false);
+        final calon = RecentService.instance.daftar.where((t) => t.localPath == null).take(2).toList();
+        for (var i = 0; i < calon.length; i++) {
+          // Yang pertama sekalian memanaskan cache yt-dlp (lihat cacheYtdlp di Kotlin).
+          YtDlpService.instance.prefetch(calon[i], boleYtDlp: i == 0);
         }
       });
       // Tanpa izin ini notifikasi pemutar (dan kontrol di layar kunci)

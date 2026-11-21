@@ -322,6 +322,12 @@ class YtDlpService extends ChangeNotifier {
           url,
         ];
         final r = await YtDlp.exec(args);
+        final err = ((r['err'] as String?) ?? '').trim();
+        LogService.instance.catat(
+          'ytdlp',
+          '${cepat ? 'cepat' : 'biasa'} exit=${r['exitCode']} ${r['ms']} ms (${t.id})'
+              '${err.isEmpty ? '' : ' err=${err.substring(err.length > 240 ? err.length - 240 : 0).replaceAll('\n', ' | ')}'}',
+        );
         if (r['exitCode'] != 0) {
           galatTerakhir = Exception((r['err'] as String?) ?? 'exit ${r['exitCode']}');
           continue;

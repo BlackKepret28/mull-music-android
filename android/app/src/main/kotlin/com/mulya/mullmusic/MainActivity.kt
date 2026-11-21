@@ -142,6 +142,14 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
+    /**
+     * Folder cache yt-dlp (player YouTube yang sudah diproses, fungsi tanda
+     * tangan, dst.). youtubedl-android menambahkan --no-cache-dir sendiri kalau
+     * opsi --cache-dir nggak didaftarkan lewat addOption, dan itu bikin tiap
+     * lagu mengulang kerja JavaScript yang berat (50-85 detik di HP).
+     */
+    private fun cacheYtdlp(): String = File(filesDir, "ytdlp-cache").apply { mkdirs() }.absolutePath
+
     private fun ensureInit() {
         if (initialized) return
         synchronized(this) {
@@ -184,6 +192,7 @@ class MainActivity : AudioServiceActivity() {
                 ensureInit()
                 val url = call.argument<String>("url")!!
                 val req = YoutubeDLRequest(url)
+                req.addOption("--cache-dir", cacheYtdlp())
                 req.addOption("-J")
                 req.addOption("--no-playlist")
                 (call.argument<List<String>>("args") ?: emptyList()).let { if (it.isNotEmpty()) req.addCommands(it) }
@@ -197,6 +206,7 @@ class MainActivity : AudioServiceActivity() {
                 val url = call.argument<String>("url")!!
                 val dir = File(getExternalFilesDir("spike"), id).apply { deleteRecursively(); mkdirs() }
                 val req = YoutubeDLRequest(url)
+                req.addOption("--cache-dir", cacheYtdlp())
                 req.addOption("--no-playlist")
                 req.addOption("--newline")
                 req.addOption("-P", dir.absolutePath)
@@ -222,6 +232,7 @@ class MainActivity : AudioServiceActivity() {
                 ensureInit()
                 val args = call.argument<List<String>>("args") ?: emptyList()
                 val req = YoutubeDLRequest(emptyList<String>())
+                req.addOption("--cache-dir", cacheYtdlp())
                 req.addCommands(args)
                 val t0 = System.currentTimeMillis()
                 val res = ytdl.execute(req, null, null)
@@ -239,6 +250,7 @@ class MainActivity : AudioServiceActivity() {
                 val tmp = File(cacheDir, "dl/$id").apply { deleteRecursively(); mkdirs() }
                 try {
                     val req = YoutubeDLRequest(url)
+                    req.addOption("--cache-dir", cacheYtdlp())
                     req.addOption("--no-playlist")
                     req.addOption("--newline")
                     req.addOption("-P", tmp.absolutePath)

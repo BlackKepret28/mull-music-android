@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Ikon notifikasi pemutar dipanggil lewat nama (string dari kode Dart),
-     jadi penyusut resource R8 nggak melihatnya dipakai. Tanpa ini ikonnya
-     bisa terbuang di APK rilis. -->
+<!-- Ikon notifikasi pemutar dan ikon tombol bawaan audio_service (play, pause,
+     next, previous, stop) dipanggil lewat NAMA dari kode Dart, jadi penyusut
+     resource R8 nggak melihatnya dipakai dan membuangnya dari APK rilis.
+     Akibatnya getIdentifier() balik 0 dan Android melempar "You must specify
+     an icon resource id to build a CustomAction" sebelum notifikasi dibuat
+     (terbukti di log HP, 20 Nov 2026). -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@drawable/ic_stat_mull" />
+    tools:keep="@drawable/ic_stat_mull,@drawable/audio_service_*" />

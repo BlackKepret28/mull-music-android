@@ -85,6 +85,9 @@ android {
                 signingConfigs.getByName("debug")
             }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Resource dibuang kalau cuma dipanggil lewat nama dari Dart (ikon
+            // notifikasi audio_service). keep.xml sudah melindungi, ini pengaman kedua.
+            isShrinkResources = false
         }
     }
 }
