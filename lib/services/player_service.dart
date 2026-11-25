@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/track.dart';
 import '../ytdlp.dart';
+import 'innertube.dart';
 import 'log_service.dart';
 import 'recent_service.dart';
 import 'ytdlp_service.dart';
@@ -143,7 +146,12 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
         MediaControl.skipToPrevious,
         if (main) MediaControl.pause else MediaControl.play,
         MediaControl.skipToNext,
-        MediaControl.stop,
+        // Tombol Tutup (X) menggantikan kotak Stop bawaan.
+        const MediaControl(
+          androidIcon: 'drawable/ic_notif_close',
+          label: 'Tutup',
+          action: MediaAction.stop,
+        ),
       ],
       systemActions: const {MediaAction.seek},
       androidCompactActionIndices: const [0, 1, 2],
@@ -169,14 +177,73 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
     ));
   }
 
-  MediaItem _item(Track t) => MediaItem(
-        id: t.id,
-        title: t.title,
-        artist: t.artist,
-        duration: t.duration,
-        artUri: t.thumbUrl == null ? null : Uri.tryParse(t.thumbUrl!),
-        extras: {'url': t.resolvableUrl},
-      );
+  MediaItem _item(Track t) {
+    final url = _urlSampul(t);
+    return MediaItem(
+      id: t.id,
+      title: t.title,
+      artist: t.artist,
+      duration: t.duration,
+      // Kalau sampul sudah diunduh sendiri, pakai berkasnya (cepat, dan nggak
+      // bergantung pada pengunduh gambar bawaan audio_service).
+      artUri: _sampulLokal[t.id] ?? (url == null ? null : Uri.tryParse(url)),
+      extras: {'url': t.resolvableUrl},
+    );
+  }
+
+  /// Sampul lagu: gambar dari hasil pencarian, atau gambar bawaan YouTube
+  /// (16:9 tanpa pita hitam) kalau lagunya dari YouTube tapi nggak punya sampul.
+  String? _urlSampul(Track t) {
+    final u = t.thumbUrl;
+    if (u != null && u.isNotEmpty) return u;
+    if (t.localPath == null && Innertube.bisaDipakai(t.id)) {
+      return 'https://i.ytimg.com/vi/${t.id}/mqdefault.jpg';
+    }
+    return null;
+  }
+
+  final _sampulLokal = <String, Uri>{};
+
+  /// Unduh sampul ke berkas, lalu kirim ulang ke notifikasi sebagai file://.
+  void _pasangSampulLokal(Track t, int aku) {
+    final url = _urlSampul(t);
+    if (url == null || url.startsWith('file:') || url.startsWith('content:')) return;
+    if (_sampulLokal.containsKey(t.id)) return;
+    _unduhSampul(url, t.id).then((uri) {
+      if (uri == null) return;
+      _sampulLokal[t.id] = uri;
+      if (aku == _token) {
+        mediaItem.add(_item(t).copyWith(duration: mediaItem.value?.duration ?? t.duration));
+      }
+    });
+  }
+
+  Future<Uri?> _unduhSampul(String url, String id) async {
+    try {
+      final dir = Directory('${(await getTemporaryDirectory()).path}/sampul');
+      if (!await dir.exists()) await dir.create(recursive: true);
+      final nama = id.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+      final f = File('${dir.path}/$nama.jpg');
+      if (!await f.exists() || await f.length() < 500) {
+        final klien = HttpClient()..connectionTimeout = const Duration(seconds: 6);
+        try {
+          final req = await klien.getUrl(Uri.parse(url)).timeout(const Duration(seconds: 6));
+          final res = await req.close().timeout(const Duration(seconds: 8));
+          if (res.statusCode != 200) {
+            await res.drain<void>();
+            throw Exception('HTTP ${res.statusCode}');
+          }
+          await f.writeAsBytes(await consolidateHttpClientResponseBytes(res));
+        } finally {
+          klien.close(force: true);
+        }
+      }
+      return f.uri;
+    } catch (e) {
+      LogService.instance.catat('sampul', 'gagal unduh sampul ($url): $e');
+      return null;
+    }
+  }
 
   /// Putar satu lagu, antrean diisi lagu itu saja.
   Future<void> putarSatu(Track t) => putar([t], 0);
@@ -318,6 +385,7 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
     final t = _antrean[i];
 
     mediaItem.add(_item(t));
+    _pasangSampulLokal(t, aku);
     galat.value = null;
     _siarkan(memuat: true);
 
@@ -469,7 +537,7 @@ Future<void> initAudio() async {
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.mulya.mullmusic.audio',
       androidNotificationChannelName: 'Pemutar Mull',
-      androidNotificationIcon: 'drawable/ic_stat_mull',
+      androidNotificationIcon: 'drawable/ic_notif_logo',
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,
     ),

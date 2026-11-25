@@ -82,6 +82,12 @@
         <meta-data
             android:name="com.mulya.mullmusic.NOTIF_ICON"
             android:resource="@drawable/ic_stat_mull" />
+        <meta-data
+            android:name="com.mulya.mullmusic.NOTIF_ICON_LOGO"
+            android:resource="@drawable/ic_notif_logo" />
+        <meta-data
+            android:name="com.mulya.mullmusic.NOTIF_ICON_CLOSE"
+            android:resource="@drawable/ic_notif_close" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

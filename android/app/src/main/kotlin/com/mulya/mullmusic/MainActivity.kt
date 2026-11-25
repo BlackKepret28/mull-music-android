@@ -340,7 +340,7 @@ class MainActivity : AudioServiceActivity() {
                 )
             )
             val n = androidx.core.app.NotificationCompat.Builder(this, "mull_tes")
-                .setSmallIcon(R.drawable.ic_stat_mull)
+                .setSmallIcon(R.drawable.ic_notif_logo)
                 .setContentTitle("Tes notifikasi Mull")
                 .setContentText("Kalau ini muncul, izin dan kanal notifikasi aman.")
                 .setAutoCancel(true)
