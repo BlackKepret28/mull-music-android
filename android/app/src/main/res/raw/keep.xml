@@ -6,4 +6,4 @@
      an icon resource id to build a CustomAction" sebelum notifikasi dibuat
      (terbukti di log HP, 20 Nov 2026). -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@drawable/ic_stat_mull,@drawable/ic_notif_logo,@drawable/ic_notif_close,@drawable/audio_service_*" />
+    tools:keep="@drawable/ic_stat_mull,@drawable/ic_notif_logo,@drawable/ic_notif_close,@drawable/ic_notif_heart,@drawable/ic_notif_heart_filled,@drawable/audio_service_*" />

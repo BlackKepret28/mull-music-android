@@ -115,7 +115,7 @@ class MainActivity : AudioServiceActivity() {
                 deleteMedia(Uri.parse(call.argument<String>("uri")!!), result)
                 return@setMethodCallHandler
             }
-            if (call.method in setOf("openInstallPermission", "installApk", "shareText", "openUrl", "openNotificationSettings", "openBatterySettings")) {
+            if (call.method in setOf("openInstallPermission", "installApk", "shareText", "openUrl", "openNotificationSettings", "openBatterySettings", "bukaApp")) {
                 // Membuka activity lain: harus dari main thread.
                 try {
                     result.success(handleUi(call))
@@ -396,6 +396,13 @@ class MainActivity : AudioServiceActivity() {
                     .setDataAndType(uri, "application/vnd.android.package-archive")
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
             )
+            mapOf("ok" to true)
+        }
+        "bukaApp" -> {
+            packageManager.getLaunchIntentForPackage(packageName)?.let {
+                it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                startActivity(it)
+            }
             mapOf("ok" to true)
         }
         "openBatterySettings" -> {

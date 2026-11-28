@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../ytdlp.dart';
 
@@ -170,11 +171,16 @@ class UpdateService extends ChangeNotifier {
     _set(TahapUpdate.cek);
     try {
       final sekarang = await versiApp();
-      final abi = (await YtDlp.appInfo()).abi;
+      final info = await YtDlp.appInfo();
+      final abi = info.abi;
+      // Nomor build terpasang (versionCode dikurangi awalan ABI split).
+      final buildSekarang = info.kode % 1000;
+      final prefs = await SharedPreferences.getInstance();
+      final ikutUji = prefs.getBool('ikutUji') ?? false;
       final http.Response r;
       try {
         r = await _http.get(
-          Uri.parse('$_api/repos/$repo/releases/latest'),
+          Uri.parse(ikutUji ? '$_api/repos/$repo/releases?per_page=8' : '$_api/repos/$repo/releases/latest'),
           headers: {
             'Accept': 'application/vnd.github+json',
             'X-GitHub-Api-Version': '2022-11-28',
@@ -190,8 +196,20 @@ class UpdateService extends ChangeNotifier {
       }
       if (r.statusCode != 200) throw UpdateGagal('GitHub menolak permintaan (HTTP ${r.statusCode}).');
 
-      final rel = jsonDecode(utf8.decode(r.bodyBytes)) as Map;
-      final versi = '${rel['tag_name'] ?? ''}'.replaceFirst(RegExp(r'^[vV]'), '');
+      final jawaban = jsonDecode(utf8.decode(r.bodyBytes));
+      final Map rel;
+      if (jawaban is List) {
+        // Mode build uji: ambil rilis terbaru apa pun jenisnya (resmi atau uji).
+        final daftar = jawaban.whereType<Map>().where((e) => e['draft'] != true).toList();
+        if (daftar.isEmpty) throw const UpdateGagal('Belum ada rilis yang diterbitkan.');
+        rel = daftar.first;
+      } else {
+        rel = jawaban as Map;
+      }
+      final tag = '${rel['tag_name'] ?? ''}';
+      // Tag `uji-N`: N = nomor build CI, dibandingkan dengan nomor build terpasang.
+      final uji = RegExp(r'^uji-(\d+)$').firstMatch(tag);
+      final versi = tag.replaceFirst(RegExp(r'^[vV]'), '');
       final assets = (rel['assets'] as List?) ?? const [];
       final aset = pilihAset(assets, abi);
       String? sha;
@@ -213,8 +231,14 @@ class UpdateService extends ChangeNotifier {
         sha256: sha,
         urlSha256: urlSha,
       );
-      if (!lebihBaru(versi, sekarang)) {
-        _set(TahapUpdate.terbaru, 'Kamu sudah pakai versi terbaru ($sekarang).');
+      final adaYangBaru = uji != null ? int.parse(uji.group(1)!) > buildSekarang : lebihBaru(versi, sekarang);
+      if (!adaYangBaru) {
+        _set(
+          TahapUpdate.terbaru,
+          uji != null
+              ? 'Kamu sudah pakai build terbaru (build $buildSekarang).'
+              : 'Kamu sudah pakai versi terbaru ($sekarang).',
+        );
       } else if (aset == null) {
         _set(TahapUpdate.gagal, 'Versi $versi ada, tapi APK buat HP ini belum tersedia.');
       } else {

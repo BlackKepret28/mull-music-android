@@ -11,6 +11,7 @@ import '../models/track.dart';
 import '../ytdlp.dart';
 import 'innertube.dart';
 import 'log_service.dart';
+import 'playlist_service.dart';
 import 'recent_service.dart';
 import 'ytdlp_service.dart';
 
@@ -20,7 +21,12 @@ import 'ytdlp_service.dart';
 /// lagu butuh URL stream baru dari yt-dlp, dan URL itu baru diambil pas
 /// lagunya mau diputar. Lagu berikutnya disiapkan di latar belakang.
 class MullAudioHandler extends BaseAudioHandler with SeekHandler {
-  MullAudioHandler._();
+  MullAudioHandler._() {
+    // Status hati di notifikasi harus ikut berubah waktu Disukai berubah.
+    PlaylistService.instance.addListener(() {
+      if (_p != null && _index >= 0) _siarkan();
+    });
+  }
   static final instance = MullAudioHandler._();
 
   final _yt = YtDlpService.instance;
@@ -140,21 +146,24 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
     }
     final p = _p;
     final main = p?.playing ?? false;
+    final lagu = current;
+    final suka = lagu != null && PlaylistService.instance.disukaiLagu(lagu);
 
     playbackState.add(PlaybackState(
       controls: [
+        // Susunan di kartu media Android 13+: [custom 1] prev play next [custom 2].
+        MediaControl.custom(androidIcon: 'drawable/ic_notif_logo', label: 'Mull Music', name: 'buka'),
         MediaControl.skipToPrevious,
         if (main) MediaControl.pause else MediaControl.play,
         MediaControl.skipToNext,
-        // Tombol Tutup (X) menggantikan kotak Stop bawaan.
-        const MediaControl(
-          androidIcon: 'drawable/ic_notif_close',
-          label: 'Tutup',
-          action: MediaAction.stop,
+        MediaControl.custom(
+          androidIcon: suka ? 'drawable/ic_notif_heart_filled' : 'drawable/ic_notif_heart',
+          label: suka ? 'Batal suka' : 'Suka',
+          name: 'suka',
         ),
       ],
       systemActions: const {MediaAction.seek},
-      androidCompactActionIndices: const [0, 1, 2],
+      androidCompactActionIndices: const [1, 2, 3],
       processingState: mati
           ? AudioProcessingState.error
           : memuat
@@ -456,6 +465,42 @@ class MullAudioHandler extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> seek(Duration position) async {
     await _player.seek(position);
+  }
+
+  /// Urutan putar sekarang (sudah termasuk acak), buat layar antrean.
+  List<Track> get urutanPutar => [for (final i in _urut) _antrean[i]];
+
+  /// Posisi lagu yang sedang diputar di [urutanPutar] (-1 kalau belum ada).
+  int get posisiSekarang => _pos;
+
+  /// Loncat ke lagu di posisi [pos] pada [urutanPutar].
+  Future<void> lompatKe(int pos) async {
+    if (pos < 0 || pos >= _urut.length) return;
+    await _putarPosisi(pos);
+  }
+
+  /// Suka atau batal suka lagu yang sedang diputar.
+  Future<bool> sukaiSekarang() async {
+    final t = current;
+    if (t == null) return false;
+    return PlaylistService.instance.toggleSuka(t);
+  }
+
+  @override
+  Future<dynamic> customAction(String name, [Map<String, dynamic>? extras]) async {
+    switch (name) {
+      case 'suka':
+        await sukaiSekarang();
+        return null;
+      case 'buka':
+        try {
+          await YtDlp.bukaApp();
+        } catch (_) {
+          // Beberapa ROM melarang membuka app dari latar; abaikan saja.
+        }
+        return null;
+    }
+    return super.customAction(name, extras);
   }
 
   /// Lagu habis sendiri: ulang-satu memutar lagu yang sama lagi.

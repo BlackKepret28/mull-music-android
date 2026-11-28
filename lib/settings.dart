@@ -13,6 +13,7 @@ class AppSettings extends ChangeNotifier {
   static const _kUpdateTerakhir = 'ytdlpUpdatedAt';
   static const _kCekUpdate = 'checkAppUpdate';
   static const _kCekUpdateTerakhir = 'appUpdateCheckedAt';
+  static const _kIkutUji = 'ikutUji';
 
   final SharedPreferences? _prefs;
 
@@ -23,6 +24,7 @@ class AppSettings extends ChangeNotifier {
     s._glass = prefs.getBool(_kKaca) ?? true;
     s._formatAudio = prefs.getString(_kFormatAudio) ?? 'm4a';
     s._cekUpdate = prefs.getBool(_kCekUpdate) ?? true;
+    s._ikutUji = prefs.getBool(_kIkutUji) ?? false;
     return s;
   }
 
@@ -53,6 +55,17 @@ class AppSettings extends ChangeNotifier {
     if (v == _cekUpdate) return;
     _cekUpdate = v;
     _prefs?.setBool(_kCekUpdate, v);
+    notifyListeners();
+  }
+
+  /// Ikut build uji (pra-rilis `uji-N`) waktu cek update. Dibaca juga oleh
+  /// UpdateService langsung dari penyimpanan dengan kunci yang sama.
+  bool _ikutUji = false;
+  bool get ikutUji => _ikutUji;
+  set ikutUji(bool v) {
+    if (v == _ikutUji) return;
+    _ikutUji = v;
+    _prefs?.setBool(_kIkutUji, v);
     notifyListeners();
   }
 

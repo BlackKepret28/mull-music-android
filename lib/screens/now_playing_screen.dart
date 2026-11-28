@@ -5,6 +5,7 @@ import '../aksi.dart';
 import '../models/track.dart';
 import '../services/download_service.dart';
 import '../services/library_service.dart';
+import '../services/playlist_service.dart';
 import '../services/player_service.dart';
 import '../widgets/artwork.dart';
 import '../widgets/lyrics_view.dart';
@@ -24,6 +25,16 @@ class NowPlayingScreen extends StatefulWidget {
 class _NowPlayingScreenState extends State<NowPlayingScreen> {
   final _player = MullAudioHandler.instance;
   bool _lirik = false;
+
+  /// Halaman 0 = antrean (geser ke kanan), halaman 1 = pemutar.
+  final _halaman = PageController(initialPage: 1);
+  int _hal = 1;
+
+  @override
+  void dispose() {
+    _halaman.dispose();
+    super.dispose();
+  }
 
   void _menu() {
     final t = _player.current;
@@ -187,11 +198,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
               ),
             ),
             title: Text(
-              _lirik ? 'Lirik' : 'Sedang diputar',
+              _hal == 0 ? 'Antrean' : (_lirik ? 'Lirik' : 'Sedang diputar'),
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
             ),
             centerTitle: true,
             actions: [
+              _TombolSuka(player: _player),
               TombolIkon(
                 ikon: _lirik ? Icons.album_rounded : Icons.lyrics_rounded,
                 tooltip: _lirik ? 'Tampilkan sampul' : 'Tampilkan lirik',
@@ -212,7 +224,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
           body: Stack(
             children: [
               // Cahaya pastel ikut warna sampul lagu yang lagi diputar.
-              Positioned.fill(child: LatarSampul(sampul: item?.artUri?.toString())),
+              Positioned.fill(child: LatarSampul(sampul: item?.artUri?.toString(), kuat: true)),
               if (item == null)
                 const Center(child: Text('Nggak ada yang diputar.'))
               else
@@ -221,7 +233,15 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   child: MediaQuery.removePadding(
                     context: context,
                     removeTop: true,
-                    child: _Isi(player: _player, item: item, lirik: _lirik),
+                    // Geser ke kanan = antrean, ke kiri = balik ke pemutar.
+                    child: PageView(
+                      controller: _halaman,
+                      onPageChanged: (i) => setState(() => _hal = i),
+                      children: [
+                        _PanelAntrean(player: _player),
+                        _Isi(player: _player, item: item, lirik: _lirik),
+                      ],
+                    ),
                   ),
                 ),
             ],
@@ -547,6 +567,126 @@ class _TombolUnduh extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2.2),
                   )
                 : null,
+          ),
+        );
+      },
+    );
+  }
+}
+
+
+/// Tombol hati: suka atau batal suka lagu yang sedang diputar.
+class _TombolSuka extends StatelessWidget {
+  const _TombolSuka({required this.player});
+
+  final MullAudioHandler player;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: PlaylistService.instance,
+      builder: (context, _) {
+        final t = player.current;
+        if (t == null) return const SizedBox.shrink();
+        final suka = PlaylistService.instance.disukaiLagu(t);
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: TombolIkon(
+            ikon: suka ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            tooltip: suka ? 'Batal suka' : 'Suka',
+            kaca: true,
+            onPressed: () async {
+              final jadi = await PlaylistService.instance.toggleSuka(t);
+              if (context.mounted) {
+                kabari(context, jadi ? 'Masuk ke Disukai.' : 'Dihapus dari Disukai.');
+              }
+            },
+            child: suka ? Icon(Icons.favorite_rounded, color: context.mull.accent, size: 22) : null,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Antrean putar. Dari playlist = urutan playlist, dari Pustaka = acak.
+class _PanelAntrean extends StatefulWidget {
+  const _PanelAntrean({required this.player});
+
+  final MullAudioHandler player;
+
+  @override
+  State<_PanelAntrean> createState() => _PanelAntreanState();
+}
+
+class _PanelAntreanState extends State<_PanelAntrean> {
+  static const _tinggi = 68.0;
+  late final ScrollController _gulir;
+
+  @override
+  void initState() {
+    super.initState();
+    final pos = widget.player.posisiSekarang;
+    // Buka tepat di sekitar lagu yang sedang diputar.
+    _gulir = ScrollController(initialScrollOffset: pos <= 1 ? 0 : (pos - 1) * _tinggi);
+  }
+
+  @override
+  void dispose() {
+    _gulir.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.player;
+    final cs = Theme.of(context).colorScheme;
+    return StreamBuilder<MediaItem?>(
+      stream: p.mediaItem,
+      builder: (context, _) {
+        final lagu = p.urutanPutar;
+        final pos = p.posisiSekarang;
+        if (lagu.isEmpty) return const Center(child: Text('Antrean kosong.'));
+        return SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(28, 8, 28, 12),
+                child: Text(
+                  '${lagu.length} lagu. Ketuk buat lompat, geser ke kiri buat balik ke pemutar.',
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  controller: _gulir,
+                  itemExtent: _tinggi,
+                  itemCount: lagu.length,
+                  itemBuilder: (context, i) {
+                    final t = lagu[i];
+                    final aktif = i == pos;
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                      selected: aktif,
+                      selectedTileColor: context.mull.accentSoft,
+                      leading: Artwork(url: t.thumbUrl, size: 48, radius: 8),
+                      title: Text(
+                        t.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontWeight: aktif ? FontWeight.w700 : FontWeight.w500),
+                      ),
+                      subtitle: t.artist == null
+                          ? null
+                          : Text(t.artist!, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      trailing: aktif ? Icon(Icons.graphic_eq_rounded, color: context.mull.accent) : null,
+                      onTap: () => p.lompatKe(i),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         );
       },

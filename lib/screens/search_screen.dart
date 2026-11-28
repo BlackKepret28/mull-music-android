@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/track.dart';
+import '../services/riwayat_cari.dart';
+import '../services/saran_cari.dart';
 import '../services/ytdlp_service.dart';
 import '../theme.dart';
 import '../widgets/empty_state.dart';
@@ -30,6 +34,12 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final _controller = TextEditingController();
+  final _fokus = FocusNode();
+
+  /// Saran ketikan (dari YouTube) dan penunda biar nggak minta tiap huruf.
+  Timer? _tundaSaran;
+  List<String> _saran = const [];
+  int _tokenSaran = 0;
   final _service = YtDlpService.instance;
 
   List<Track>? _hasil;
@@ -46,11 +56,21 @@ class _SearchScreenState extends State<SearchScreen> {
   void initState() {
     super.initState();
     widget.permintaanLuar?.addListener(_dariLuar);
+    _fokus.addListener(_segarkan);
+    RiwayatCari.instance.addListener(_segarkan);
+    RiwayatCari.instance.muat();
+  }
+
+  void _segarkan() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     widget.permintaanLuar?.removeListener(_dariLuar);
+    RiwayatCari.instance.removeListener(_segarkan);
+    _tundaSaran?.cancel();
+    _fokus.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -67,6 +87,7 @@ class _SearchScreenState extends State<SearchScreen> {
     if (q.isEmpty || _cari) return;
 
     FocusScope.of(context).unfocus();
+    if (!YtDlpService.isUrl(q)) RiwayatCari.instance.catat(q);
 
     // Hasil lama sengaja TIDAK dikosongkan. Kalau sudah ada isinya, daftarnya
     // tetap kebaca selagi pencarian baru jalan, cuma dikasih garis progres.
@@ -102,6 +123,7 @@ class _SearchScreenState extends State<SearchScreen> {
   void _bersihkan() {
     _controller.clear();
     setState(() {
+      _saran = const [];
       _hasil = null;
       _galat = null;
       _terakhir = '';
@@ -144,7 +166,9 @@ class _SearchScreenState extends State<SearchScreen> {
                     Expanded(
                       child: TextField(
                         controller: _controller,
+                        focusNode: _fokus,
                         textInputAction: TextInputAction.search,
+                        onChanged: _ketik,
                         onSubmitted: _submit,
                         style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: c.text),
                         decoration: InputDecoration(
@@ -189,6 +213,9 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _body(EdgeInsets padding) {
+    // Kolom cari lagi dipakai: tampilkan riwayat atau saran, bukan hasil.
+    if (_fokus.hasFocus) return _panelSaran(padding);
+
     final hasil = _hasil;
 
     if (_cari) {
@@ -236,6 +263,119 @@ class _SearchScreenState extends State<SearchScreen> {
     }
 
     return _daftar(hasil, padding);
+  }
+
+  /// Dipanggil tiap huruf: ganti panel, lalu minta saran setelah jeda singkat.
+  void _ketik(String v) {
+    setState(() {});
+    _tundaSaran?.cancel();
+    final q = v.trim();
+    if (q.length < 2 || YtDlpService.isUrl(q)) {
+      if (_saran.isNotEmpty) setState(() => _saran = const []);
+      return;
+    }
+    _tundaSaran = Timer(const Duration(milliseconds: 250), () async {
+      final aku = ++_tokenSaran;
+      final hasil = await SaranCari.ambil(q);
+      // Ketikannya sudah berubah lagi: jawaban ini basi.
+      if (!mounted || aku != _tokenSaran) return;
+      setState(() => _saran = hasil);
+    });
+  }
+
+  void _pakai(String teks, {required bool langsungCari}) {
+    _controller.text = teks;
+    _controller.selection = TextSelection.collapsed(offset: teks.length);
+    if (langsungCari) {
+      _submit(teks);
+    } else {
+      _ketik(teks);
+    }
+  }
+
+  Widget _panelSaran(EdgeInsets padding) {
+    final c = context.mull;
+    final q = _controller.text.trim();
+    final riwayat = RiwayatCari.instance.daftar;
+
+    Widget baris(IconData ikon, String teks, Widget? ujung, VoidCallback onTap) => ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+          leading: Icon(ikon, size: 22, color: c.textSubtle),
+          title: Text(teks, maxLines: 1, overflow: TextOverflow.ellipsis),
+          trailing: ujung,
+          onTap: onTap,
+        );
+
+    // Lagi mengetik: saran dari YouTube. Belum ada saran (jaringan lambat,
+    // atau terlalu pendek): riwayat yang cocok.
+    if (q.isNotEmpty) {
+      final cocok = _saran.isNotEmpty
+          ? _saran
+          : riwayat.where((e) => e.toLowerCase().contains(q.toLowerCase())).toList();
+      return ListView(
+        padding: padding,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        children: [
+          for (final s in cocok)
+            baris(
+              _saran.isNotEmpty ? Icons.search_rounded : Icons.history_rounded,
+              s,
+              IconButton(
+                tooltip: 'Isi ke kolom cari',
+                icon: Icon(Icons.north_west_rounded, size: 20, color: c.textMuted),
+                onPressed: () => _pakai(s, langsungCari: false),
+              ),
+              () => _pakai(s, langsungCari: true),
+            ),
+        ],
+      );
+    }
+
+    if (riwayat.isEmpty) {
+      return _kosong(
+        padding,
+        const EmptyState(
+          icon: Icons.history_rounded,
+          title: 'Belum ada pencarian',
+          message: 'Pencarian yang kamu lakukan muncul di sini biar gampang diulang.',
+        ),
+      );
+    }
+
+    return ListView(
+      padding: padding,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 4, 16, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Pencarian terakhir',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: c.textMuted),
+                ),
+              ),
+              TextButton(
+                onPressed: RiwayatCari.instance.kosongkan,
+                child: const Text('Hapus semua'),
+              ),
+            ],
+          ),
+        ),
+        for (final r in riwayat)
+          baris(
+            Icons.history_rounded,
+            r,
+            IconButton(
+              tooltip: 'Hapus dari riwayat',
+              icon: Icon(Icons.close_rounded, size: 20, color: c.textMuted),
+              onPressed: () => RiwayatCari.instance.hapus(r),
+            ),
+            () => _pakai(r, langsungCari: true),
+          ),
+      ],
+    );
   }
 
   Widget _kosong(EdgeInsets padding, Widget isi) => Padding(padding: padding, child: isi);

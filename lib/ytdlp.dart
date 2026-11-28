@@ -192,6 +192,9 @@ class YtDlp {
   /// ROM yang agresif (Infinix/XOS dkk.) nggak mematikan pemutar di latar.
   static Future<void> openBatterySettings() => _call('openBatterySettings');
 
+  /// Bawa app ke depan (dipakai tombol logo di notifikasi pemutar).
+  static Future<void> bukaApp() => _call('bukaApp');
+
   /// Status notifikasi + layanan pemutar buat layar Diagnostik.
   static Future<Map<String, dynamic>> diagNotifikasi() => _call('diagNotifikasi');
 

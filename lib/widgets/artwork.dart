@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -124,6 +125,17 @@ class _GambarSampulState extends State<GambarSampul> {
             if (b == null) return cadangan;
             return Image.memory(b, fit: widget.fit, gaplessPlayback: true, cacheWidth: lebar);
           },
+        );
+      }
+
+      // Sampul yang sudah diunduh pemutar sendiri (cache/sampul/*.jpg).
+      if (u.startsWith('file:')) {
+        return Image.file(
+          File.fromUri(Uri.parse(u)),
+          fit: widget.fit,
+          cacheWidth: lebar,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => cadangan,
         );
       }
 

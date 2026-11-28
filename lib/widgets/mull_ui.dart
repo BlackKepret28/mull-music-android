@@ -16,9 +16,12 @@ import 'glass_surface.dart';
 /// Kalau [warnaSampul] diisi (ada lagu yang diputar), cahaya pastelnya
 /// diganti warna dari sampul lagu itu, tetap lembut.
 class LatarMull extends StatelessWidget {
-  const LatarMull({super.key, this.warnaSampul, this.halus = false});
+  const LatarMull({super.key, this.warnaSampul, this.halus = false, this.kuat = false});
 
   final Color? warnaSampul;
+
+  /// Tambah gradien warna sampul dari atas layar (layar Sedang diputar).
+  final bool kuat;
 
   /// Versi dua cahaya saja, buat halaman yang dibuka di atas tab
   /// (Pengaturan, detail playlist).
@@ -64,8 +67,42 @@ class LatarMull extends StatelessWidget {
                     _Cahaya(cahaya[2], o * 0.9, left: -0.35 * w, bottom: 0.06 * h, size: 0.95 * w),
                     _Cahaya(cahaya[3], o, right: -0.38 * w, bottom: -0.08 * h, size: 1.05 * w),
                   ];
-            return Stack(clipBehavior: Clip.hardEdge, children: daftar);
+            return Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                ...daftar,
+                if (kuat && sampul != null) Positioned.fill(child: _SelimutWarna(sampul, c.bg)),
+              ],
+            );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// Gradien dari warna sampul di atas layar, memudar ke warna latar.
+class _SelimutWarna extends StatelessWidget {
+  const _SelimutWarna(this.warna, this.latar);
+
+  final Color warna;
+  final Color latar;
+
+  @override
+  Widget build(BuildContext context) {
+    final hsl = HSLColor.fromColor(warna);
+    final atas = hsl.withSaturation(hsl.saturation.clamp(0.35, 0.8)).withLightness(0.30).toColor();
+    return TweenAnimationBuilder<Color?>(
+      tween: ColorTween(end: atas),
+      duration: const Duration(milliseconds: 600),
+      builder: (_, w, _) => DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [(w ?? atas).withValues(alpha: 0.75), latar.withValues(alpha: 0)],
+            stops: const [0, 0.75],
+          ),
         ),
       ),
     );
@@ -652,10 +689,11 @@ Future<T?> tampilkanLembar<T>(BuildContext context, {String? judul, required Wid
 
 /// Latar pastel. Waktu ada lagu diputar, cahayanya ikut warna sampulnya.
 class LatarSampul extends StatefulWidget {
-  const LatarSampul({super.key, required this.sampul, this.halus = false});
+  const LatarSampul({super.key, required this.sampul, this.halus = false, this.kuat = false});
 
   final String? sampul;
   final bool halus;
+  final bool kuat;
 
   @override
   State<LatarSampul> createState() => _LatarSampulState();
@@ -690,5 +728,6 @@ class _LatarSampulState extends State<LatarSampul> {
   }
 
   @override
-  Widget build(BuildContext context) => LatarMull(warnaSampul: _warna, halus: widget.halus);
+  Widget build(BuildContext context) =>
+      LatarMull(warnaSampul: _warna, halus: widget.halus, kuat: widget.kuat);
 }

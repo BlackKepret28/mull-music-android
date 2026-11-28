@@ -433,7 +433,8 @@ class _TabLagu extends StatelessWidget {
         final t = lagu[j];
         return TrackTile(
           track: t,
-          onTap: onPlay == null ? null : () => onPlay!(lagu, j),
+          // Dari Pustaka: lagu yang diketuk dulu, sisanya acak.
+          onTap: onPlay == null ? null : () => onPlay!(_antreanPustaka(lagu, j), 0),
           onMenu: () => onMenu(t),
         );
       },
@@ -656,4 +657,13 @@ class _TabPlaylist extends StatelessWidget {
       },
     );
   }
+}
+
+
+/// Antrean dari Pustaka: lagu yang diketuk jadi yang pertama, sisanya diacak.
+/// (Dari playlist antreannya tetap mengikuti urutan playlist.)
+List<Track> _antreanPustaka(List<Track> lagu, int j) {
+  final sisa = [...lagu]..removeAt(j);
+  sisa.shuffle();
+  return [lagu[j], ...sisa];
 }

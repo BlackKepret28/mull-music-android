@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -36,6 +37,8 @@ abstract final class CoverColor {
         final b = await GambarSampul.bacaLokal(url);
         if (b == null) return _simpan(url, null);
         bytes = b;
+      } else if (url.startsWith('file:')) {
+        bytes = await File.fromUri(Uri.parse(url)).readAsBytes();
       } else {
         final r = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
         if (r.statusCode != 200) return _simpan(url, null);

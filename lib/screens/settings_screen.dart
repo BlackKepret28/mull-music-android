@@ -140,6 +140,14 @@ class SettingsScreen extends StatelessWidget {
                       title: const Text('Cek update otomatis'),
                       subtitle: const Text('Paling sering sekali sehari, waktu app dibuka.'),
                     ),
+                    SwitchListTile(
+                      value: s.ikutUji,
+                      onChanged: (v) => s.ikutUji = v,
+                      title: const Text('Ikut build uji'),
+                      subtitle: const Text(
+                        'Update ke build percobaan (uji-N) dari GitHub, bukan cuma rilis resmi. Dibandingkan lewat nomor build di bawah.',
+                      ),
+                    ),
                     const Divider(indent: 16, endIndent: 16),
                     const ListTile(
                       title: Text('Lisensi'),

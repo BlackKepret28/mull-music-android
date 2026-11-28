@@ -194,6 +194,35 @@ class PlaylistService extends ChangeNotifier {
   }
 
   /// Tambah lagu, lewati yang sudah ada.
+  /// Id tetap buat playlist "Disukai", biar HP dan laptop menyebutnya sama.
+  static const idDisukai = 'disukai';
+
+  Playlist? get disukai {
+    for (final p in _daftar) {
+      if (p.id == idDisukai) return p;
+    }
+    return null;
+  }
+
+  bool disukaiLagu(Track t) => disukai?.lagu.any((e) => e.id == t.id) ?? false;
+
+  /// Suka atau batal suka. Playlist "Disukai" dibuat otomatis waktu pertama
+  /// kali. Hasilnya: apakah lagu ini sekarang disukai.
+  Future<bool> toggleSuka(Track t) async {
+    var p = disukai;
+    if (p == null) {
+      final sekarang = DateTime.now();
+      p = Playlist(id: idDisukai, nama: 'Disukai', dibuat: sekarang, diubah: sekarang, lagu: []);
+      _daftar.insert(0, p);
+    }
+    if (p.lagu.any((e) => e.id == t.id)) {
+      await hapusLagu(p, t);
+      return false;
+    }
+    await tambahLagu(p, [t]);
+    return true;
+  }
+
   Future<int> tambahLagu(Playlist p, List<Track> lagu) async {
     final punya = p.lagu.map((t) => t.id).toSet();
     var ditambah = 0;
